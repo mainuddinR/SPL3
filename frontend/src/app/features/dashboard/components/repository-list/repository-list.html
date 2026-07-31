@@ -1,0 +1,91 @@
+<div class="flex flex-col gap-6">
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold text-gray-900">GitHub Repositories</h1>
+      <p class="text-gray-500 mt-1">Search and connect GitHub repositories for automated analysis.</p>
+    </div>
+    
+    <div class="w-full md:w-auto relative">
+      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <svg class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+        </svg>
+      </div>
+      <input type="text"
+             [value]="searchQuery()"
+             (input)="onSearchInput($event)"
+             class="block w-full md:w-80 pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
+             placeholder="Search repositories...">
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="flex justify-center items-center py-12">
+      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+    </div>
+  } @else if (error()) {
+    <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-md">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm text-red-700">{{ error() }}</p>
+        </div>
+      </div>
+    </div>
+  } @else {
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      @for (repo of repositories(); track repo.id) {
+        <app-repository-card [repo]="repo" (click)="selectRepo(repo)" class="cursor-pointer"></app-repository-card>
+      }
+    </div>
+
+    @if (repositories().length === 0 && searchQuery()) {
+      <div class="text-center py-12 bg-white rounded-lg border border-gray-200">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">No repositories found</h3>
+        <p class="mt-1 text-sm text-gray-500">We couldn't find anything matching "{{ searchQuery() }}".</p>
+      </div>
+    }
+
+    @if (totalCount() > 0) {
+      <div class="flex items-center justify-between bg-white px-4 py-3 sm:px-6 rounded-lg border border-gray-200">
+        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+          <div>
+            <p class="text-sm text-gray-700">
+              Showing <span class="font-medium">{{ (currentPage() - 1) * 10 + 1 }}</span> to <span class="font-medium">{{ mathMin(currentPage() * 10, totalCount()) }}</span> of <span class="font-medium">{{ totalCount() }}</span> results
+            </p>
+          </div>
+          <div>
+            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+              <button 
+                [disabled]="currentPage() === 1"
+                (click)="onPageChange(currentPage() - 1)"
+                class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed">
+                <span class="sr-only">Previous</span>
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+              </button>
+              
+              <button
+                [disabled]="currentPage() * 10 >= totalCount()"
+                (click)="onPageChange(currentPage() + 1)"
+                class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed">
+                <span class="sr-only">Next</span>
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            </nav>
+          </div>
+        </div>
+      </div>
+    }
+  }
+</div>

@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: automated-code-review
+  datasource:
+    # --- ORACLE CONFIGURATION (Commented out for local development) ---
+    # url: jdbc:oracle:thin:@${ORACLE_HOST:localhost}:${ORACLE_PORT:1521}/${ORACLE_SERVICE:ORCLPDB1}
+    # username: ${ORACLE_USER:REPLACE_ME}
+    # password: ${ORACLE_PASSWORD:REPLACE_ME}
+    # driver-class-name: oracle.jdbc.OracleDriver
+    
+    # --- H2 CONFIGURATION (For local development) ---
+    url: jdbc:h2:mem:devdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        # dialect: org.hibernate.dialect.OracleDialect
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID:Ov23liNEGqwWJBRo1fct}
+            client-secret: ${GITHUB_CLIENT_SECRET:c523e08f4f14ea8cfbbbe0742b56b904a35aa35d}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:REPLACE_WITH_A_VERY_LONG_SECRET_KEY_FOR_JWT_SIGNING}
+    expiration-ms: 86400000 # 24 hours
+  ml-service:
+    url: ${ML_SERVICE_URL:http://localhost:8000}
+
+server:
+  port: 8080

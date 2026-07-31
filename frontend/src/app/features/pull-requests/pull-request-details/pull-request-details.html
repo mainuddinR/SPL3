@@ -1,0 +1,117 @@
+<div class="p-6">
+  <button (click)="goBack()" class="mb-4 text-blue-600 hover:underline flex items-center gap-1">
+    <span class="material-icons text-sm">arrow_back</span> Back
+  </button>
+
+  <div *ngIf="error()" class="bg-red-100 text-red-700 p-4 rounded mb-6">
+    {{ error() }}
+  </div>
+
+  <div *ngIf="loading()" class="flex justify-center p-12">
+    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+  </div>
+
+  <div *ngIf="!loading() && pullRequest()">
+    <div class="bg-white rounded shadow p-6 mb-6">
+      <div class="flex justify-between items-start">
+        <div>
+          <h1 class="text-2xl font-bold flex items-center gap-2">
+            {{ pullRequest()?.title }}
+            <span class="text-gray-500 font-normal">#{{ pullRequest()?.number }}</span>
+          </h1>
+          <p class="text-gray-500 mt-1">State: <span class="font-semibold">{{ pullRequest()?.state }}</span> | Created: {{ pullRequest()?.createdAt | date }}</p>
+        </div>
+        <button (click)="syncDetails()" [disabled]="syncing()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow flex items-center gap-2 disabled:opacity-50">
+          <span *ngIf="syncing()" class="animate-spin material-icons">refresh</span>
+          <span *ngIf="!syncing()" class="material-icons">sync</span>
+          Sync Details
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="border-b border-gray-200 mb-6">
+      <nav class="-mb-px flex gap-6">
+        <button (click)="selectedTab.set('overview')" 
+                [class.border-blue-500]="selectedTab() === 'overview'" 
+                [class.text-blue-600]="selectedTab() === 'overview'"
+                [class.border-transparent]="selectedTab() !== 'overview'"
+                [class.text-gray-500]="selectedTab() !== 'overview'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          Overview
+        </button>
+        <button (click)="selectedTab.set('files')" 
+                [class.border-blue-500]="selectedTab() === 'files'" 
+                [class.text-blue-600]="selectedTab() === 'files'"
+                [class.border-transparent]="selectedTab() !== 'files'"
+                [class.text-gray-500]="selectedTab() !== 'files'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          Files Changed ({{ files().length }})
+        </button>
+        <button (click)="selectedTab.set('comments')" 
+                [class.border-blue-500]="selectedTab() === 'comments'" 
+                [class.text-blue-600]="selectedTab() === 'comments'"
+                [class.border-transparent]="selectedTab() !== 'comments'"
+                [class.text-gray-500]="selectedTab() !== 'comments'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          Comments ({{ comments().length }})
+        </button>
+      </nav>
+    </div>
+
+    <!-- Overview Tab -->
+    <div *ngIf="selectedTab() === 'overview'" class="bg-white rounded shadow p-6 whitespace-pre-wrap">
+      {{ pullRequest()?.body || 'No description provided.' }}
+    </div>
+
+    <!-- Files Tab -->
+    <div *ngIf="selectedTab() === 'files'" class="flex gap-6 h-[600px]">
+      <!-- File List -->
+      <div class="w-1/4 bg-white rounded shadow overflow-y-auto">
+        <div *ngFor="let file of files()" 
+             (click)="selectedFile.set(file)"
+             [class.bg-blue-50]="selectedFile()?.id === file.id"
+             class="p-3 border-b cursor-pointer hover:bg-gray-50">
+          <div class="text-sm font-medium break-all">{{ file.filename }}</div>
+          <div class="text-xs mt-1 text-gray-500">
+            <span class="text-green-600">+{{ file.additions }}</span> 
+            <span class="text-red-600 ml-2">-{{ file.deletions }}</span>
+            <span class="ml-2 px-1 rounded bg-gray-100">{{ file.status }}</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Diff View -->
+      <div class="w-3/4 bg-gray-900 rounded shadow overflow-y-auto p-4 text-gray-300 font-mono text-sm leading-relaxed whitespace-pre">
+<div *ngIf="selectedFile()">
+<div *ngFor="let line of selectedFile()?.patch?.split('\n')"
+     [class.text-green-400]="line.startsWith('+')"
+     [class.text-red-400]="line.startsWith('-')"
+     [class.text-blue-400]="line.startsWith('@@')">{{ line }}</div>
+</div>
+        <div *ngIf="!selectedFile()" class="flex h-full items-center justify-center text-gray-500">
+          Select a file to view diff
+        </div>
+      </div>
+    </div>
+
+    <!-- Comments Tab -->
+    <div *ngIf="selectedTab() === 'comments'" class="space-y-4">
+      <div *ngFor="let comment of comments()" class="bg-white rounded shadow p-4">
+        <div class="flex justify-between text-sm text-gray-500 mb-2">
+          <span class="font-bold text-gray-900">{{ comment.userLogin || 'Unknown' }}</span>
+          <span>{{ comment.createdAt | date:'short' }}</span>
+        </div>
+        <div class="text-xs text-gray-400 mb-2 font-mono bg-gray-50 p-1 rounded">
+          {{ comment.path }} (position: {{ comment.position }})
+        </div>
+        <div class="text-gray-800 whitespace-pre-wrap">
+          {{ comment.body }}
+        </div>
+      </div>
+      <div *ngIf="comments().length === 0" class="text-center text-gray-500 p-8 bg-white rounded shadow">
+        No comments found on this pull request.
+      </div>
+    </div>
+  </div>
+</div>
