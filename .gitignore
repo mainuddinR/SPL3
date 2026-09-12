@@ -1,4 +1,3 @@
-```gitignore
 # Compiled class files
 *.class
 
@@ -36,4 +35,57 @@ Thumbs.db
 
 # Application logs
 logs/application.log
-```
+
+# ==========================================
+# ML Service (Python)
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+venv/
+.venv/
+env/
+.env_python/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# pytest
+.pytest_cache/
+htmlcov/
+.coverage
+.tox/
+
+# Models & Weights
+ml-service/models/codebert_satd/best_model/*
+!ml-service/models/codebert_satd/best_model/.gitkeep
+*.pt
+*.bin
+*.safetensors
+*.ckpt
+*.h5
+*.pb
+
+# Training Outputs & Checkpoints
+ml-service/codebert_training/outputs/
+ml-service/codebert_training/logs/
+ml-service/codebert_training/runs/
+checkpoint-*/
+
+# Datasets
+# Exclude raw or large processed datasets if desired
+data/pentacet/controlled_30k/train.csv
+data/pentacet/controlled_30k/test.csv
+data/pentacet/controlled_30k/validation.csv
+data/pentacet/controlled_30k/pentacet_controlled_30k.csv
+
+# Type checking
+.mypy_cache/
+tools/pgsql/
+data/
+ml-service/data/
+.tmp/
+__MACOSX/ 
