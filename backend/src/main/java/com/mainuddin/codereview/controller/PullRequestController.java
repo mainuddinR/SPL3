@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import com.mainuddin.codereview.dto.SatdAnalysisResponseDTO;
+import com.mainuddin.codereview.service.PullRequestAnalysisService;
+
 @RestController
 @RequestMapping("/api/prs")
 @CrossOrigin(origins = "*", maxAge = 3600)
@@ -21,15 +24,24 @@ public class PullRequestController {
     private final PullRequestRepository pullRequestRepository;
     private final PullRequestFileRepository pullRequestFileRepository;
     private final PullRequestCommentRepository pullRequestCommentRepository;
+    private final PullRequestAnalysisService pullRequestAnalysisService;
 
     public PullRequestController(GithubService githubService, 
                                  PullRequestRepository pullRequestRepository,
                                  PullRequestFileRepository pullRequestFileRepository,
-                                 PullRequestCommentRepository pullRequestCommentRepository) {
+                                 PullRequestCommentRepository pullRequestCommentRepository,
+                                 PullRequestAnalysisService pullRequestAnalysisService) {
         this.githubService = githubService;
         this.pullRequestRepository = pullRequestRepository;
         this.pullRequestFileRepository = pullRequestFileRepository;
         this.pullRequestCommentRepository = pullRequestCommentRepository;
+        this.pullRequestAnalysisService = pullRequestAnalysisService;
+    }
+
+    @PostMapping("/{prId}/analyze")
+    public ResponseEntity<List<SatdAnalysisResponseDTO>> analyzePullRequest(@PathVariable Long prId) {
+        List<SatdAnalysisResponseDTO> analysisResults = pullRequestAnalysisService.analyzePullRequest(prId);
+        return ResponseEntity.ok(analysisResults);
     }
 
     @PostMapping("/project/{projectId}/sync")

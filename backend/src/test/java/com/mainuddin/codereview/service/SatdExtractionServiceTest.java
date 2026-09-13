@@ -61,7 +61,7 @@ public class SatdExtractionServiceTest {
         List<SatdCandidateDTO> candidates = extractionService.extractCandidates(createFile("Math.java", patch));
         assertEquals(1, candidates.size());
         assertEquals("// FIXME: should be 3", candidates.get(0).getCommentText());
-        assertTrue(candidates.get(0).getSurroundingCode().contains("int b = 2; // FIXME: should be 3"));
+        assertTrue(candidates.get(0).getPrecedingCode().contains("int a = 1;"));
         assertEquals(51, candidates.get(0).getLineNumber());
     }
 
@@ -114,6 +114,6 @@ public class SatdExtractionServiceTest {
         assertEquals(1, candidates.size());
         assertEquals("// new comment", candidates.get(0).getCommentText());
         // Context should not contain deleted line
-        assertFalse(candidates.get(0).getSurroundingCode().contains("old comment"));
+        assertFalse(candidates.get(0).getPrecedingCode().contains("old comment"));
     }
 }

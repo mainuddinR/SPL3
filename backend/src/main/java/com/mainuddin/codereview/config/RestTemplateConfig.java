@@ -11,4 +11,11 @@ public class RestTemplateConfig {
     public RestTemplate restTemplate() {
         return new RestTemplate();
     }
+
+    @Bean
+    public org.springframework.web.client.RestClient restClient() {
+        return org.springframework.web.client.RestClient.builder()
+                .requestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory())
+                .build();
+    }
 }

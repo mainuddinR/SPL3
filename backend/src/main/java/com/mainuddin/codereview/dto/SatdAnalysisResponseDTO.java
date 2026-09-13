@@ -9,11 +9,16 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SatdCandidateDTO {
+public class SatdAnalysisResponseDTO {
+    private String filename;
+    private Integer lineNumber;
     private String commentText;
     private String precedingCode;
     private String succeedingCode;
-    private String filename;
-    private String language;
-    private Integer lineNumber;
+    
+    // ML Prediction
+    private String label;
+    private Double satdProbability;
+    private Double nonSatdProbability;
+    private Double confidence;
 }

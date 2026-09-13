@@ -93,17 +93,17 @@ public class SatdExtractionService {
         
         // For merging consecutive line comments
         StringBuilder pendingLineComment = new StringBuilder();
-        int pendingLineCommentStartLineNum = -1;
-        int pendingLineCommentStartIndex = -1;
-        int pendingLineCommentEndIndex = -1;
-        boolean pendingHasAddedLine = false;
+        int[] pendingLineCommentStartLineNum = {-1};
+        int[] pendingLineCommentStartIndex = {-1};
+        int[] pendingLineCommentEndIndex = {-1};
+        boolean[] pendingHasAddedLine = {false};
         
         Runnable flushPendingLineComment = () -> {
-            if (pendingLineComment.length() > 0 && pendingHasAddedLine) {
-                candidates.add(createCandidate(pendingLineComment.toString(), pendingLineCommentStartLineNum, pendingLineCommentStartIndex, pendingLineCommentEndIndex, hunkLines, filename));
+            if (pendingLineComment.length() > 0 && pendingHasAddedLine[0]) {
+                candidates.add(createCandidate(pendingLineComment.toString(), pendingLineCommentStartLineNum[0], pendingLineCommentStartIndex[0], pendingLineCommentEndIndex[0], hunkLines, filename));
             }
             pendingLineComment.setLength(0);
-            pendingHasAddedLine = false;
+            pendingHasAddedLine[0] = false;
         };
 
         for (int i = 0; i < hunkLines.size(); i++) {
@@ -203,15 +203,15 @@ public class SatdExtractionService {
             if (inLineComment) {
                 if (sl.isAdded) hasAddedLine = true;
                 if (pendingLineComment.length() == 0) {
-                    pendingLineCommentStartLineNum = commentStartLineNumber;
-                    pendingLineCommentStartIndex = commentStartIndex;
+                    pendingLineCommentStartLineNum[0] = commentStartLineNumber;
+                    pendingLineCommentStartIndex[0] = commentStartIndex;
                 } else {
                     pendingLineComment.append("\n");
                 }
                 pendingLineComment.append(currentComment.toString());
-                pendingLineCommentEndIndex = i;
+                pendingLineCommentEndIndex[0] = i;
                 if (hasAddedLine) {
-                    pendingHasAddedLine = true;
+                    pendingHasAddedLine[0] = true;
                 }
                 
                 currentComment.setLength(0);
@@ -230,20 +230,32 @@ public class SatdExtractionService {
     }
     
     private SatdCandidateDTO createCandidate(String commentText, int startLineNum, int startIndex, int endIndex, List<SourceLine> hunkLines, String filename) {
-        int contextStart = Math.max(0, startIndex - 5);
-        int contextEnd = Math.min(hunkLines.size() - 1, endIndex + 5);
+        int precedingStart = Math.max(0, startIndex - 5);
+        int precedingEnd = startIndex - 1;
         
-        StringBuilder context = new StringBuilder();
-        for (int i = contextStart; i <= contextEnd; i++) {
-            context.append(hunkLines.get(i).content);
-            if (i < contextEnd) {
-                context.append("\n");
+        StringBuilder precedingCode = new StringBuilder();
+        for (int i = precedingStart; i <= precedingEnd; i++) {
+            precedingCode.append(hunkLines.get(i).content);
+            if (i < precedingEnd) {
+                precedingCode.append("\n");
+            }
+        }
+        
+        int succeedingStart = endIndex + 1;
+        int succeedingEnd = Math.min(hunkLines.size() - 1, endIndex + 5);
+        
+        StringBuilder succeedingCode = new StringBuilder();
+        for (int i = succeedingStart; i <= succeedingEnd; i++) {
+            succeedingCode.append(hunkLines.get(i).content);
+            if (i < succeedingEnd) {
+                succeedingCode.append("\n");
             }
         }
         
         return SatdCandidateDTO.builder()
                 .commentText(commentText.trim())
-                .surroundingCode(context.toString())
+                .precedingCode(precedingCode.toString())
+                .succeedingCode(succeedingCode.toString())
                 .filename(filename)
                 .language("Java")
                 .lineNumber(startLineNum)

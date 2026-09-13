@@ -1,5 +1,6 @@
 package com.mainuddin.codereview.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,11 +10,14 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SatdCandidateDTO {
-    private String commentText;
+public class CodeBertRequestDTO {
+    
+    @JsonProperty("comment")
+    private String comment;
+    
+    @JsonProperty("preceding_code")
     private String precedingCode;
+    
+    @JsonProperty("succeeding_code")
     private String succeedingCode;
-    private String filename;
-    private String language;
-    private Integer lineNumber;
 }

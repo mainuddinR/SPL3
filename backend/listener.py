@@ -1,0 +1,11 @@
+import socket
+s = socket.socket()
+s.bind(('0.0.0.0', 8002))
+s.listen(1)
+print('Listening on 8002...')
+conn, addr = s.accept()
+print('Connected by', addr)
+data = conn.recv(4096)
+print(data)
+conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n')
+conn.close()

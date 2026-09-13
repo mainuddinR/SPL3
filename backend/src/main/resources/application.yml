@@ -34,7 +34,7 @@ app:
     secret: ${JWT_SECRET:REPLACE_WITH_A_VERY_LONG_SECRET_KEY_FOR_JWT_SIGNING}
     expiration-ms: 86400000 # 24 hours
   ml-service:
-    url: ${ML_SERVICE_URL:http://localhost:8000}
+    url: ${ML_SERVICE_URL:http://localhost:8001}
 
 server:
   port: 8080
