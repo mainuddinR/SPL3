@@ -1,3 +1,15 @@
+export interface SatdAnalysisResponse {
+    filename: string;
+    lineNumber: number;
+    commentText: string;
+    precedingCode: string;
+    succeedingCode: string;
+    label: 'SATD' | 'NON-SATD';
+    satdProbability: number;
+    nonSatdProbability: number;
+    confidence: number;
+}
+
 export interface PullRequest {
     id: number;
     githubPrId: number;

@@ -21,13 +21,60 @@
           </h1>
           <p class="text-gray-500 mt-1">State: <span class="font-semibold">{{ pullRequest()?.state }}</span> | Created: {{ pullRequest()?.createdAt | date }}</p>
         </div>
-        <button (click)="syncDetails()" [disabled]="syncing()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow flex items-center gap-2 disabled:opacity-50">
-          <span *ngIf="syncing()" class="animate-spin material-icons">refresh</span>
-          <span *ngIf="!syncing()" class="material-icons">sync</span>
-          Sync Details
-        </button>
+        <div class="flex flex-wrap gap-2">
+          <button (click)="analyzePullRequest()" [disabled]="analyzing() || syncing()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow flex items-center gap-2 disabled:opacity-50">
+            <span *ngIf="analyzing()" class="animate-spin material-icons" aria-hidden="true">refresh</span>
+            {{ analyzing() ? 'Analyzing PR...' : 'Analyze PR' }}
+          </button>
+          <button (click)="syncDetails()" [disabled]="syncing() || analyzing()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow flex items-center gap-2 disabled:opacity-50">
+            <span *ngIf="syncing()" class="animate-spin material-icons">refresh</span>
+            <span *ngIf="!syncing()" class="material-icons">sync</span>
+            Sync Details
+          </button>
+        </div>
       </div>
     </div>
+
+    <section class="bg-white rounded shadow p-6 mb-6" aria-labelledby="satd-heading" [attr.aria-busy]="analyzing()">
+      <h2 id="satd-heading" class="text-xl font-bold mb-2">SATD Analysis</h2>
+      <p class="text-sm text-gray-500 mb-4">Analyzes source-code comments in the stored Java PR diff. GitHub review comments are shown separately in the Comments tab.</p>
+      <div aria-live="polite">
+        <p *ngIf="!analyzing() && !analysisError() && analysisResults() === null" class="text-gray-500">
+          Analysis has not been run. Use Sync Details to fetch the latest diff, then select Analyze PR.
+        </p>
+        <p *ngIf="analyzing()" class="text-blue-600">Analyzing source-code comments. This may take a while.</p>
+        <p *ngIf="analysisResults()?.length === 0" class="text-gray-500">
+          Analysis completed. No analyzable source-code comments/findings were found for the stored PR diff. If details have not been synced, use Sync Details and analyze again.
+        </p>
+        <p *ngIf="analysisResults()?.length" class="text-gray-500 mb-4">Analysis completed. Each result shows its SATD or NON-SATD classification.</p>
+      </div>
+      <div *ngIf="analysisError()" role="alert" class="bg-red-100 text-red-700 p-4 rounded mb-4">{{ analysisError() }}</div>
+      <div class="space-y-4">
+        <article *ngFor="let finding of analysisResults()" class="border border-gray-200 rounded p-4 min-w-0">
+          <div class="flex flex-wrap items-center gap-2 mb-3">
+            <span class="px-2 py-1 rounded text-sm font-semibold"
+                  [ngClass]="finding.label === 'SATD' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'">{{ finding.label }}</span>
+            <span class="font-mono text-sm break-all">{{ finding.filename }}</span>
+            <span class="text-sm text-gray-500">Line {{ finding.lineNumber }}</span>
+          </div>
+          <p class="text-sm text-gray-600 mb-3">
+            SATD probability: {{ finding.satdProbability | percent:'1.2-2' }}
+            <span class="ml-3">Confidence: {{ finding.confidence | percent:'1.2-2' }}</span>
+          </p>
+          <h3 class="text-sm font-semibold mb-2">Extracted comment</h3>
+          <pre class="bg-gray-900 text-gray-300 rounded p-4 overflow-x-auto whitespace-pre font-mono text-sm"><code>{{ finding.commentText }}</code></pre>
+          <details class="mt-3">
+            <summary class="cursor-pointer text-blue-600">View surrounding code</summary>
+            <h3 class="text-sm font-semibold mt-3 mb-2">Preceding code</h3>
+            <pre *ngIf="finding.precedingCode; else noPrecedingCode" class="bg-gray-900 text-gray-300 rounded p-4 overflow-x-auto whitespace-pre font-mono text-sm"><code>{{ finding.precedingCode }}</code></pre>
+            <ng-template #noPrecedingCode><p class="text-sm text-gray-500">No preceding code available in this diff.</p></ng-template>
+            <h3 class="text-sm font-semibold mt-3 mb-2">Succeeding code</h3>
+            <pre *ngIf="finding.succeedingCode; else noSucceedingCode" class="bg-gray-900 text-gray-300 rounded p-4 overflow-x-auto whitespace-pre font-mono text-sm"><code>{{ finding.succeedingCode }}</code></pre>
+            <ng-template #noSucceedingCode><p class="text-sm text-gray-500">No succeeding code available in this diff.</p></ng-template>
+          </details>
+        </article>
+      </div>
+    </section>
 
     <!-- Tabs -->
     <div class="border-b border-gray-200 mb-6">
