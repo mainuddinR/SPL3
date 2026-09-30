@@ -61,6 +61,20 @@
             SATD probability: {{ finding.satdProbability | percent:'1.2-2' }}
             <span class="ml-3">Confidence: {{ finding.confidence | percent:'1.2-2' }}</span>
           </p>
+          <p *ngIf="finding.label === 'SATD'" class="text-sm text-gray-700 mb-3">
+            Debt category: <span class="font-semibold">{{ (finding.debtCategory || 'NOT_ASSESSED').replace('_', ' ') | titlecase }}</span>
+            <span *ngIf="finding.categoryReason" class="block text-gray-500 mt-1">{{ finding.categoryReason }}</span>
+          </p>
+          <div *ngIf="finding.label === 'SATD'" class="text-sm text-gray-700 mb-3">
+            <p>Severity: <span class="font-semibold">{{ finding.severityState === 'ASSESSED' ? finding.severityScore + ' / 5' : 'Not Assessed' }}</span></p>
+            <p *ngIf="finding.severityState === 'ASSESSED'">Method length: {{ finding.methodLength }} · Complexity: {{ finding.methodComplexity }}</p>
+            <p *ngIf="finding.severityReason" class="text-gray-500">Reason: {{ finding.severityReason }}</p>
+            <p *ngIf="finding.riskEvidence" class="text-gray-500">Risk-related evidence: {{ finding.riskEvidence }}</p>
+          </div>
+          <button *ngIf="finding.label === 'SATD' && findLocation(finding)"
+                  type="button" (click)="viewInDiff(finding)"
+                  class="text-sm font-medium text-blue-600 hover:underline mb-3">View in diff</button>
+          <p *ngIf="finding.label === 'SATD' && !findLocation(finding)" class="text-sm text-gray-500 mb-3">Diff location unavailable.</p>
           <h3 class="text-sm font-semibold mb-2">Extracted comment</h3>
           <pre class="bg-gray-900 text-gray-300 rounded p-4 overflow-x-auto whitespace-pre font-mono text-sm"><code>{{ finding.commentText }}</code></pre>
           <details class="mt-3">
@@ -103,6 +117,14 @@
                 class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
           Comments ({{ comments().length }})
         </button>
+        <button (click)="selectedTab.set('history')"
+                [class.border-blue-500]="selectedTab() === 'history'"
+                [class.text-blue-600]="selectedTab() === 'history'"
+                [class.border-transparent]="selectedTab() !== 'history'"
+                [class.text-gray-500]="selectedTab() !== 'history'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          Analysis History
+        </button>
       </nav>
     </div>
 
@@ -131,10 +153,16 @@
       <!-- Diff View -->
       <div class="w-3/4 bg-gray-900 rounded shadow overflow-y-auto p-4 text-gray-300 font-mono text-sm leading-relaxed whitespace-pre">
 <div *ngIf="selectedFile()">
-<div *ngFor="let line of selectedFile()?.patch?.split('\n')"
-     [class.text-green-400]="line.startsWith('+')"
-     [class.text-red-400]="line.startsWith('-')"
-     [class.text-blue-400]="line.startsWith('@@')">{{ line }}</div>
+<div *ngFor="let row of diffRows(); let rowIndex = index"
+     [id]="'diff-row-' + selectedFile()?.id + '-' + rowIndex"
+     [attr.tabindex]="isSatdLocation(row) ? -1 : null"
+     [class.bg-red-900]="isSatdLocation(row)"
+     [class.outline]="isSatdLocation(row)"
+     [class.outline-1]="isSatdLocation(row)"
+     [class.outline-red-400]="isSatdLocation(row)"
+     [class.text-green-400]="row.text.startsWith('+')"
+     [class.text-red-400]="row.text.startsWith('-')"
+     [class.text-blue-400]="row.text.startsWith('@@')"><span *ngIf="isSatdLocation(row)" class="text-white font-semibold">SATD location (line {{ row.newLine }}) </span>{{ row.text }}</div>
 </div>
         <div *ngIf="!selectedFile()" class="flex h-full items-center justify-center text-gray-500">
           Select a file to view diff
@@ -160,5 +188,65 @@
         No comments found on this pull request.
       </div>
     </div>
+
+    <section *ngIf="selectedTab() === 'history'" class="bg-white rounded shadow p-6" aria-labelledby="history-heading" [attr.aria-busy]="historyLoading()">
+      <div class="flex justify-between items-center mb-4">
+        <h2 id="history-heading" class="text-xl font-bold">Analysis History</h2>
+        <button type="button" (click)="loadHistory(prId()!)" [disabled]="historyLoading()"
+                class="text-sm text-blue-600 hover:underline disabled:opacity-50">Refresh history</button>
+      </div>
+      <p class="text-sm text-gray-500 mb-4">Saved historical results from previous analysis runs.</p>
+      <p *ngIf="historyLoading()" class="text-blue-600" role="status">Loading analysis history...</p>
+      <div *ngIf="historyError()" role="alert" class="bg-red-100 text-red-700 p-4 rounded mb-4">{{ historyError() }}</div>
+      <p *ngIf="!historyLoading() && !historyError() && historyRuns().length === 0" class="text-gray-500">No previous analysis runs.</p>
+      <div class="space-y-3">
+        <article *ngFor="let run of historyRuns()" class="border border-gray-200 rounded p-4">
+          <button type="button" (click)="selectHistoryRun(run)" class="w-full text-left text-blue-600 hover:underline font-medium">
+            {{ run.startedAt ? (run.startedAt | date:'medium') : 'Start time unavailable' }} — {{ run.status }}
+          </button>
+          <p class="text-sm text-gray-600 mt-2">Analyzed candidates: {{ run.analyzedCandidateCount ?? '—' }}
+            <span class="ml-3">SATD findings: {{ run.satdFindingCount }}</span></p>
+          <p *ngIf="run.status === 'RUNNING'" class="text-sm text-gray-500 mt-1">This run has not reached a terminal state.</p>
+          <p *ngIf="run.status === 'FAILED'" class="text-sm text-red-700 mt-1">This analysis run failed.</p>
+          <div *ngIf="selectedHistory()?.run?.id === run.id" class="border-t mt-4 pt-4">
+            <h3 class="font-semibold mb-2">Saved historical result</h3>
+            <p *ngIf="run.status === 'COMPLETED' && run.analyzedCandidateCount === 0" class="text-gray-500">No analyzable candidates were found in this run.</p>
+            <p *ngIf="run.status === 'COMPLETED' && run.analyzedCandidateCount !== 0 && selectedHistory()?.findings?.length === 0" class="text-gray-500">No SATD findings were detected in this analysis run.</p>
+            <div *ngIf="run.status === 'COMPLETED'" class="space-y-4">
+              <article *ngFor="let finding of selectedHistory()?.findings" class="border border-gray-200 rounded p-4 min-w-0">
+                <div class="flex flex-wrap items-center gap-2 mb-3">
+                  <span class="px-2 py-1 rounded text-sm font-semibold bg-red-100 text-red-700">{{ finding.label }}</span>
+                  <span class="font-mono text-sm break-all">{{ finding.filename }}</span>
+                  <span class="text-sm text-gray-500">Line {{ finding.lineNumber }}</span>
+                </div>
+                <p class="text-sm text-gray-600 mb-3">SATD probability: {{ finding.satdProbability | percent:'1.2-2' }}
+                  <span class="ml-3">Confidence: {{ finding.confidence | percent:'1.2-2' }}</span></p>
+                <p class="text-sm text-gray-700 mb-3">Debt category: <span class="font-semibold">{{ finding.debtCategory.replace('_', ' ') | titlecase }}</span>
+                  <span *ngIf="finding.categoryReason" class="block text-gray-500 mt-1">{{ finding.categoryReason }}</span></p>
+                <div class="text-sm text-gray-700 mb-3">
+                  <p>Severity: <span class="font-semibold">{{ finding.severityState === 'ASSESSED' ? finding.severityScore + ' / 5' : finding.severityState === 'LEGACY' ? 'Not assessed by this historical run' : 'Not Assessed' }}</span></p>
+                  <p *ngIf="finding.severityState === 'ASSESSED'">Method length: {{ finding.methodLength }} · Complexity: {{ finding.methodComplexity }}</p>
+                  <p *ngIf="finding.severityReason && finding.severityState !== 'LEGACY'" class="text-gray-500">Reason: {{ finding.severityReason }}</p>
+                  <p *ngIf="finding.riskEvidence" class="text-gray-500">Risk-related evidence: {{ finding.riskEvidence }}</p>
+                </div>
+                <h4 class="text-sm font-semibold mb-2">Extracted comment</h4>
+                <pre class="bg-gray-900 text-gray-300 rounded p-4 overflow-x-auto whitespace-pre font-mono text-sm"><code>{{ finding.commentText }}</code></pre>
+                <details class="mt-3">
+                  <summary class="cursor-pointer text-blue-600">View saved surrounding code</summary>
+                  <h4 class="text-sm font-semibold mt-3 mb-2">Preceding code</h4>
+                  <pre *ngIf="finding.precedingCode; else noSavedPrecedingCode" class="bg-gray-900 text-gray-300 rounded p-4 overflow-x-auto whitespace-pre font-mono text-sm"><code>{{ finding.precedingCode }}</code></pre>
+                  <ng-template #noSavedPrecedingCode><p class="text-sm text-gray-500">No preceding code saved.</p></ng-template>
+                  <h4 class="text-sm font-semibold mt-3 mb-2">Succeeding code</h4>
+                  <pre *ngIf="finding.succeedingCode; else noSavedSucceedingCode" class="bg-gray-900 text-gray-300 rounded p-4 overflow-x-auto whitespace-pre font-mono text-sm"><code>{{ finding.succeedingCode }}</code></pre>
+                  <ng-template #noSavedSucceedingCode><p class="text-sm text-gray-500">No succeeding code saved.</p></ng-template>
+                </details>
+              </article>
+            </div>
+          </div>
+        </article>
+      </div>
+      <p *ngIf="historyDetailLoading()" role="status" class="text-blue-600 mt-4">Loading saved run...</p>
+      <div *ngIf="historyDetailError()" role="alert" class="bg-red-100 text-red-700 p-4 rounded mt-4">{{ historyDetailError() }}</div>
+    </section>
   </div>
 </div>

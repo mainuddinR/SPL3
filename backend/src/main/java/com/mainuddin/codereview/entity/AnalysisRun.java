@@ -33,4 +33,13 @@ public class AnalysisRun {
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
+
+    @Column(name = "analyzed_candidate_count")
+    private Integer analyzedCandidateCount;
+
+    @Column(name = "analyzed_head_sha")
+    private String analyzedHeadSha;
+
+    @Column(name = "analyzed_base_sha")
+    private String analyzedBaseSha;
 }

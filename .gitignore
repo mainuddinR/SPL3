@@ -36,6 +36,12 @@ Thumbs.db
 # Application logs
 logs/application.log
 
+# Local development databases
+*.mv.db
+*.trace.db
+*.sqlite
+*.sqlite3
+
 # ==========================================
 # ML Service (Python)
 # ==========================================
@@ -88,4 +94,4 @@ tools/pgsql/
 data/
 ml-service/data/
 .tmp/
-__MACOSX/ 
+__MACOSX/

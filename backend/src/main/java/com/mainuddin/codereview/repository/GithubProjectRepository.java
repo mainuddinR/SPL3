@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface GithubProjectRepository extends JpaRepository<GithubProject, Long> {
     List<GithubProject> findByUserId(Long userId);
+    List<GithubProject> findByUserGithubIdOrderByIdAsc(String githubId);
     boolean existsByGithubRepoIdAndUserId(Long githubRepoId, Long userId);
 }

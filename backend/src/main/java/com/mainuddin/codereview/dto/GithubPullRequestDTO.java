@@ -6,6 +6,13 @@ import java.time.LocalDateTime;
 
 @Data
 public class GithubPullRequestDTO {
+    @Data
+    public static class GitRef {
+        private String sha;
+    }
+
+    private GitRef head;
+    private GitRef base;
     private Long id;
     private Integer number;
     private String title;

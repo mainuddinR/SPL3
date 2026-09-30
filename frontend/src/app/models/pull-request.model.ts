@@ -8,6 +8,41 @@ export interface SatdAnalysisResponse {
     satdProbability: number;
     nonSatdProbability: number;
     confidence: number;
+    debtCategory: DebtCategory | null;
+    categoryReason: string | null;
+    categoryRuleVersion: string | null;
+    severityState: 'ASSESSED' | 'NOT_ASSESSED' | 'NOT_APPLICABLE' | 'LEGACY';
+    severityScore: number | null;
+    severityReason: string | null;
+    severityRuleVersion: string | null;
+    methodLength: number | null;
+    methodComplexity: number | null;
+    methodMetricsRuleVersion: string | null;
+    riskEvidence: string | null;
+    riskEvidenceRuleVersion: string | null;
+}
+
+export type DebtCategory = 'DESIGN' | 'DEFECT' | 'TEST' | 'REQUIREMENT' | 'DOCUMENTATION' | 'UNCLASSIFIED' | 'NOT_ASSESSED';
+
+export type AnalysisRunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+
+export interface AnalysisRunSummary {
+    id: number;
+    status: AnalysisRunStatus;
+    startedAt: string | null;
+    completedAt: string | null;
+    analyzedCandidateCount: number | null;
+    satdFindingCount: number;
+}
+
+export interface SavedSatdFinding extends Omit<SatdAnalysisResponse, 'label'> {
+    label: 'SATD';
+    debtCategory: DebtCategory;
+}
+
+export interface AnalysisRunDetail {
+    run: AnalysisRunSummary;
+    findings: SavedSatdFinding[];
 }
 
 export interface PullRequest {

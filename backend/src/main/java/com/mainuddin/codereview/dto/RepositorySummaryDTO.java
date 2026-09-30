@@ -1,19 +1,7 @@
 package com.mainuddin.codereview.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class RepositorySummaryDTO {
-    private String id;
-    private String name;
-    private String url;
-    private String lastAnalyzed;
-    private int healthScore;
-    private String status;
-}
+public record RepositorySummaryDTO(Long id, String name, String url, long pullRequestCount,
+                                   long analyzedPullRequestCount, long currentSatdFindingCount,
+                                   LocalDateTime lastCompletedAnalysisAt) {}

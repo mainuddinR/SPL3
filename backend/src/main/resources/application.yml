@@ -1,6 +1,12 @@
 spring:
   application:
     name: automated-code-review
+
+  h2:
+    console:
+      # Local development only. Set H2_CONSOLE_ENABLED=false outside local development.
+      enabled: ${H2_CONSOLE_ENABLED:true}
+      path: /h2-console
   datasource:
     # --- ORACLE CONFIGURATION (Commented out for local development) ---
     # url: jdbc:oracle:thin:@${ORACLE_HOST:localhost}:${ORACLE_PORT:1521}/${ORACLE_SERVICE:ORCLPDB1}

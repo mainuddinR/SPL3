@@ -1,6 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { RepositoryAnalysisSummary } from '../../../../models/dashboard.model';
 
 @Component({
   selector: 'app-repo-summary',
@@ -9,5 +10,5 @@ import { RouterModule } from '@angular/router';
   templateUrl: './repo-summary.html'
 })
 export class RepoSummary {
-  @Input() repo: any;
+  @Input({ required: true }) repo!: RepositoryAnalysisSummary;
 }

@@ -1,56 +1,52 @@
-<div *ngIf="loading" class="flex justify-center items-center h-64">
-  <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+<div *ngIf="loading" role="status" class="flex justify-center items-center h-64">
+  <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" aria-hidden="true"></div>
+  <span class="ml-3">Loading dashboard statistics...</span>
 </div>
 
-<div *ngIf="error" class="bg-red-50 border-l-4 border-red-400 p-4">
-  <div class="flex">
-    <div class="flex-shrink-0">
-      <span class="material-icons text-red-400">error</span>
-    </div>
-    <div class="ml-3">
-      <p class="text-sm text-red-700">
-        Error loading dashboard data. Please try again later.
-      </p>
-    </div>
-  </div>
+<div *ngIf="error" role="alert" class="bg-red-50 border-l-4 border-red-400 p-4 text-sm text-red-700">
+  Could not load dashboard statistics. <button type="button" (click)="fetchDashboardData()" class="underline">Try again</button>.
 </div>
 
-<div *ngIf="!loading && !error && dashboardData">
-  <!-- Stats Section -->
-  <h2 class="text-xl font-bold text-gray-900 mb-4">Overview</h2>
-  <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-    <app-stats-card 
-      title="Repositories" 
-      [value]="dashboardData.stats.totalRepositories" 
-      icon="folder"
-      colorClass="bg-indigo-100 text-indigo-600">
-    </app-stats-card>
-    <app-stats-card 
-      title="Pull Requests" 
-      [value]="dashboardData.stats.totalPullRequests" 
-      icon="call_split"
-      colorClass="bg-blue-100 text-blue-600">
-    </app-stats-card>
-    <app-stats-card 
-      title="Critical Issues" 
-      [value]="dashboardData.stats.criticalIssues" 
-      icon="warning"
-      colorClass="bg-red-100 text-red-600">
-    </app-stats-card>
-    <app-stats-card 
-      title="Tech Debt Score" 
-      [value]="dashboardData.stats.technicalDebtScore" 
-      icon="speed"
-      colorClass="bg-green-100 text-green-600">
-    </app-stats-card>
+<div *ngIf="!loading && !error && dashboardData as data">
+  <h2 class="text-xl font-bold text-gray-900 mb-2">PR Analysis Dashboard</h2>
+  <p class="text-sm text-gray-600 mb-5">Statistics describe saved findings from each PR's latest completed analysis of its stored diff. They are not a complete inventory of repository source code.</p>
+
+  <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+    <app-stats-card title="Repositories" [value]="data.stats.repositoryCount" icon="folder" colorClass="bg-indigo-100 text-indigo-600" />
+    <app-stats-card title="Pull Requests" [value]="data.stats.pullRequestCount" icon="call_split" colorClass="bg-blue-100 text-blue-600" />
+    <app-stats-card title="Analyzed PRs" [value]="data.stats.analyzedPullRequestCount" icon="check_circle" colorClass="bg-teal-100 text-teal-600" />
+    <app-stats-card title="Current SATD Findings" [value]="data.stats.currentSatdFindingCount" icon="comment" colorClass="bg-amber-100 text-amber-700" />
+  </div>
+  <p *ngIf="data.stats.latestAnalysisAt" class="text-sm text-gray-600 mb-6">Latest completed analysis: {{ data.stats.latestAnalysisAt | date:'medium' }}</p>
+
+  <div *ngIf="data.stats.repositoryCount === 0" class="bg-white rounded shadow p-5 mb-6">No selected repositories yet.</div>
+  <div *ngIf="data.stats.repositoryCount > 0 && data.stats.pullRequestCount === 0" class="bg-white rounded shadow p-5 mb-6">These repositories have no stored pull requests yet.</div>
+  <div *ngIf="data.stats.pullRequestCount > 0 && data.stats.analyzedPullRequestCount === 0" class="bg-white rounded shadow p-5 mb-6">No completed PR analysis yet.</div>
+  <div *ngIf="data.stats.analyzedPullRequestCount > 0 && data.stats.currentSatdFindingCount === 0" class="bg-white rounded shadow p-5 mb-6">0 SATD findings in latest completed PR analyses.</div>
+
+  <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 mb-8">
+    <section class="bg-white rounded shadow p-5" aria-labelledby="category-heading">
+      <h3 id="category-heading" class="text-lg font-semibold mb-1">Category Distribution</h3>
+      <p class="text-sm text-gray-500 mb-4">Unclassified: assessment ran without a unique category. Not Assessed: historical finding without category assessment.</p>
+      <div *ngFor="let item of categories" class="mb-3">
+        <div class="flex justify-between text-sm"><span>{{ item.label }}</span><span>{{ data.categoryDistribution[item.key] }}</span></div>
+        <div class="h-2 rounded bg-gray-100" aria-hidden="true"><div class="h-2 rounded bg-indigo-500" [style.width.%]="barWidth(data.categoryDistribution[item.key], data.categoryDistribution)"></div></div>
+      </div>
+    </section>
+    <section class="bg-white rounded shadow p-5" aria-labelledby="severity-heading">
+      <h3 id="severity-heading" class="text-lg font-semibold mb-1">Severity Distribution</h3>
+      <p class="text-sm text-gray-500 mb-4">Project prioritization scores from saved method evidence; Not Assessed findings have no score.</p>
+      <div *ngFor="let item of severities" class="mb-3">
+        <div class="flex justify-between text-sm"><span>{{ item.label }}</span><span>{{ data.severityDistribution[item.key] }}</span></div>
+        <div class="h-2 rounded bg-gray-100" aria-hidden="true"><div class="h-2 rounded bg-blue-600" [style.width.%]="barWidth(data.severityDistribution[item.key], data.severityDistribution)"></div></div>
+      </div>
+    </section>
   </div>
 
-  <!-- Repositories Section -->
-  <div class="flex items-center justify-between mb-4">
-    <h2 class="text-xl font-bold text-gray-900">Recent Repositories</h2>
-    <a href="#" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">View all</a>
-  </div>
-  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-    <app-repo-summary *ngFor="let repo of dashboardData.repositories" [repo]="repo"></app-repo-summary>
-  </div>
+  <section aria-labelledby="repository-heading">
+    <h3 id="repository-heading" class="text-xl font-bold text-gray-900 mb-4">Repository Analysis Summary</h3>
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <app-repo-summary *ngFor="let repo of data.repositories" [repo]="repo" />
+    </div>
+  </section>
 </div>

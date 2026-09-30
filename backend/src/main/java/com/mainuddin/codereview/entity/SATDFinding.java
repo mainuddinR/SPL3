@@ -24,16 +24,58 @@ public class SATDFinding {
     @com.fasterxml.jackson.annotation.JsonIgnore
     private AnalysisRun analysisRun;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pull_request_file_id", nullable = false)
-    @com.fasterxml.jackson.annotation.JsonIgnore
-    private PullRequestFile pullRequestFile;
+    @Column(name = "filename", nullable = false)
+    private String filename;
 
-    @Column(name = "debt_category", nullable = false)
+    @Lob
+    @Column(name = "preceding_code")
+    private String precedingCode;
+
+    @Lob
+    @Column(name = "succeeding_code")
+    private String succeedingCode;
+
+    @Column(name = "satd_probability", nullable = false)
+    private Double satdProbability;
+
+    @Column(name = "non_satd_probability", nullable = false)
+    private Double nonSatdProbability;
+
+    @Column(name = "confidence", nullable = false)
+    private Double confidence;
+
+    @Column(name = "debt_category")
     private String debtCategory;
+
+    @Column(name = "category_reason", columnDefinition = "TEXT")
+    private String categoryReason;
+
+    @Column(name = "category_rule_version")
+    private String categoryRuleVersion;
 
     @Column(name = "severity_score")
     private Integer severityScore;
+
+    @Column(name = "severity_reason", columnDefinition = "TEXT")
+    private String severityReason;
+
+    @Column(name = "severity_rule_version")
+    private String severityRuleVersion;
+
+    @Column(name = "method_length")
+    private Integer methodLength;
+
+    @Column(name = "method_complexity")
+    private Integer methodComplexity;
+
+    @Column(name = "method_metrics_rule_version")
+    private String methodMetricsRuleVersion;
+
+    @Column(name = "risk_evidence", columnDefinition = "TEXT")
+    private String riskEvidence;
+
+    @Column(name = "risk_evidence_rule_version")
+    private String riskEvidenceRuleVersion;
 
     @Column(name = "security_flag")
     private Boolean securityFlag;

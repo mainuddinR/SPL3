@@ -15,10 +15,10 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.ArrayList;
+import java.util.Objects;
 import jakarta.transaction.Transactional;
 import com.mainuddin.codereview.entity.PullRequest;
-import com.mainuddin.codereview.entity.PullRequestFile;
-import com.mainuddin.codereview.entity.PullRequestComment;
 import com.mainuddin.codereview.dto.GithubPullRequestDTO;
 import com.mainuddin.codereview.dto.GithubFileDTO;
 import com.mainuddin.codereview.dto.GithubCommentDTO;
@@ -30,22 +30,25 @@ public class GithubService {
     private final GithubProjectRepository githubProjectRepository;
     private final UserRepository userRepository;
     private final com.mainuddin.codereview.repository.PullRequestRepository pullRequestRepository;
-    private final com.mainuddin.codereview.repository.PullRequestFileRepository pullRequestFileRepository;
-    private final com.mainuddin.codereview.repository.PullRequestCommentRepository pullRequestCommentRepository;
+    private final PullRequestFileSnapshotService fileSnapshotService;
+    private final PullRequestCommentSnapshotService commentSnapshotService;
+
+    private static final int FILES_PER_PAGE = 100;
+    private static final int MAX_FILE_PAGES = 30; // GitHub exposes at most 3,000 PR files.
 
     @Value("${spring.security.oauth2.client.registration.github.client-id}")
     private String githubClientId;
 
     public GithubService(RestTemplate restTemplate, GithubProjectRepository githubProjectRepository, UserRepository userRepository,
                          com.mainuddin.codereview.repository.PullRequestRepository pullRequestRepository,
-                         com.mainuddin.codereview.repository.PullRequestFileRepository pullRequestFileRepository,
-                         com.mainuddin.codereview.repository.PullRequestCommentRepository pullRequestCommentRepository) {
+                         PullRequestFileSnapshotService fileSnapshotService,
+                         PullRequestCommentSnapshotService commentSnapshotService) {
         this.restTemplate = restTemplate;
         this.githubProjectRepository = githubProjectRepository;
         this.userRepository = userRepository;
         this.pullRequestRepository = pullRequestRepository;
-        this.pullRequestFileRepository = pullRequestFileRepository;
-        this.pullRequestCommentRepository = pullRequestCommentRepository;
+        this.fileSnapshotService = fileSnapshotService;
+        this.commentSnapshotService = commentSnapshotService;
     }
 
     private HttpHeaders createHeaders() {
@@ -135,6 +138,8 @@ public class GithubService {
                 pr.setBody(prDto.getBody());
                 pr.setCreatedAt(prDto.getCreatedAt());
                 pr.setUpdatedAt(prDto.getUpdatedAt());
+                pr.setHeadSha(sha(prDto.getHead()));
+                pr.setBaseSha(sha(prDto.getBase()));
                 pr.setGithubProject(project);
                 
                 pullRequestRepository.save(pr);
@@ -142,40 +147,40 @@ public class GithubService {
         }
     }
 
-    @Transactional
     public void fetchAndStorePullRequestDetails(Long prId) {
-        PullRequest pr = pullRequestRepository.findById(prId)
+        PullRequest pr = pullRequestRepository.findWithProjectById(prId)
                 .orElseThrow(() -> new RuntimeException("PR not found"));
         GithubProject project = pr.getGithubProject();
-
-        // 1. Fetch Files
-        String filesUrl = String.format("https://api.github.com/repos/%s/%s/pulls/%d/files", 
-                project.getOwnerLogin(), project.getName(), pr.getNumber());
         HttpEntity<String> entity = new HttpEntity<>(createHeaders());
-        
-        try {
-            ResponseEntity<List<GithubFileDTO>> filesResponse = restTemplate.exchange(
-                    filesUrl, HttpMethod.GET, entity, new ParameterizedTypeReference<List<GithubFileDTO>>() {});
-                    
-            if (filesResponse.getBody() != null) {
-                pullRequestFileRepository.deleteByPullRequestId(pr.getId()); // clean old files
-                for (GithubFileDTO fileDto : filesResponse.getBody()) {
-                    PullRequestFile file = PullRequestFile.builder()
-                            .sha(fileDto.getSha())
-                            .filename(fileDto.getFilename())
-                            .status(fileDto.getStatus())
-                            .additions(fileDto.getAdditions())
-                            .deletions(fileDto.getDeletions())
-                            .changes(fileDto.getChanges())
-                            .patch(fileDto.getPatch())
-                            .pullRequest(pr)
-                            .build();
-                    pullRequestFileRepository.save(file);
-                }
+        String pullUrl = String.format("https://api.github.com/repos/%s/%s/pulls/%d",
+                project.getOwnerLogin(), project.getName(), pr.getNumber());
+        GithubPullRequestDTO before = requireRevision(restTemplate.exchange(
+                pullUrl, HttpMethod.GET, entity, GithubPullRequestDTO.class).getBody());
+        List<GithubFileDTO> files = new ArrayList<>();
+        boolean complete = false;
+        for (int page = 1; page <= MAX_FILE_PAGES; page++) {
+            String filesUrl = pullUrl + "/files?per_page=" + FILES_PER_PAGE + "&page=" + page;
+            List<GithubFileDTO> batch = restTemplate.exchange(filesUrl, HttpMethod.GET, entity,
+                    new ParameterizedTypeReference<List<GithubFileDTO>>() {}).getBody();
+            if (batch == null || batch.size() > FILES_PER_PAGE) {
+                throw new IllegalStateException("Incomplete PR file response");
             }
-        } catch (Exception e) {
-            System.err.println("Failed to fetch files for PR " + pr.getNumber());
+            files.addAll(batch);
+            if (batch.size() < FILES_PER_PAGE) {
+                complete = true;
+                break;
+            }
         }
+        if (!complete) {
+            throw new IllegalStateException("GitHub PR file ceiling reached; completeness cannot be established");
+        }
+        GithubPullRequestDTO after = requireRevision(restTemplate.exchange(
+                pullUrl, HttpMethod.GET, entity, GithubPullRequestDTO.class).getBody());
+        if (!Objects.equals(sha(before.getHead()), sha(after.getHead())) ||
+                !Objects.equals(sha(before.getBase()), sha(after.getBase()))) {
+            throw new IllegalStateException("PR revision changed during file synchronization");
+        }
+        fileSnapshotService.replace(prId, sha(after.getHead()), sha(after.getBase()), files);
 
         // 2. Fetch Comments
         String commentsUrl = String.format("https://api.github.com/repos/%s/%s/pulls/%d/comments", 
@@ -185,22 +190,22 @@ public class GithubService {
                     commentsUrl, HttpMethod.GET, entity, new ParameterizedTypeReference<List<GithubCommentDTO>>() {});
                     
             if (commentsResponse.getBody() != null) {
-                pullRequestCommentRepository.deleteByPullRequestId(pr.getId()); // clean old comments
-                for (GithubCommentDTO commentDto : commentsResponse.getBody()) {
-                    PullRequestComment comment = PullRequestComment.builder()
-                            .githubCommentId(commentDto.getId())
-                            .path(commentDto.getPath())
-                            .position(commentDto.getPosition())
-                            .body(commentDto.getBody())
-                            .userLogin(commentDto.getUser() != null ? commentDto.getUser().getLogin() : null)
-                            .createdAt(commentDto.getCreatedAt())
-                            .pullRequest(pr)
-                            .build();
-                    pullRequestCommentRepository.save(comment);
-                }
+                commentSnapshotService.replace(prId, commentsResponse.getBody());
             }
         } catch (Exception e) {
             System.err.println("Failed to fetch comments for PR " + pr.getNumber());
         }
+    }
+
+    private static String sha(GithubPullRequestDTO.GitRef ref) {
+        return ref == null ? null : ref.getSha();
+    }
+
+    private static GithubPullRequestDTO requireRevision(GithubPullRequestDTO dto) {
+        if (dto == null || sha(dto.getHead()) == null || sha(dto.getHead()).isBlank() ||
+                sha(dto.getBase()) == null || sha(dto.getBase()).isBlank()) {
+            throw new IllegalStateException("GitHub PR revision unavailable");
+        }
+        return dto;
     }
 }

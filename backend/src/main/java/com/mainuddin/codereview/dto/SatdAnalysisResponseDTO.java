@@ -21,4 +21,16 @@ public class SatdAnalysisResponseDTO {
     private Double satdProbability;
     private Double nonSatdProbability;
     private Double confidence;
+    private String debtCategory;
+    private String categoryReason;
+    private String categoryRuleVersion;
+    private String severityState;
+    private Integer severityScore;
+    private String severityReason;
+    private String severityRuleVersion;
+    private Integer methodLength;
+    private Integer methodComplexity;
+    private String methodMetricsRuleVersion;
+    private String riskEvidence;
+    private String riskEvidenceRuleVersion;
 }

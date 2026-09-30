@@ -37,6 +37,18 @@ public class PullRequest {
     @Column(columnDefinition = "TEXT")
     private String body;
 
+    @Column(name = "head_sha")
+    private String headSha;
+
+    @Column(name = "base_sha")
+    private String baseSha;
+
+    @Column(name = "synced_files_head_sha")
+    private String syncedFilesHeadSha;
+
+    @Column(name = "synced_files_base_sha")
+    private String syncedFilesBaseSha;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
     @com.fasterxml.jackson.annotation.JsonIgnore
