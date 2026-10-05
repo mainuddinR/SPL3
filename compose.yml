@@ -1,0 +1,36 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:4200:80"
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    env_file:
+      - ./.local/runtime-secrets.env
+    environment:
+      SPRING_PROFILES_ACTIVE: oracle
+      ORACLE_HOST: 192.168.0.169
+      ORACLE_PORT: "1521"
+      ORACLE_SERVICE: XEPDB1
+      ORACLE_USER: SPL3_APP
+      ML_SERVICE_URL: http://ml-service:8001
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      ml-service:
+        condition: service_healthy
+
+  ml-service:
+    build: ./ml-service
+    volumes:
+      - type: bind
+        source: ./ml-service/models/codebert_satd/best_model
+        target: /app/models/codebert_satd/best_model
+        read_only: true
+        bind:
+          create_host_path: false
+    ports:
+      - "127.0.0.1:8001:8001"
