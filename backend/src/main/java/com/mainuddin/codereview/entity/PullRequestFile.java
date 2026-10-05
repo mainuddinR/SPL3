@@ -30,7 +30,7 @@ public class PullRequestFile {
 
     private Integer changes;
 
-    @Column(columnDefinition = "TEXT")
+    @Lob
     private String patch;
 
     @ManyToOne(fetch = FetchType.LAZY)

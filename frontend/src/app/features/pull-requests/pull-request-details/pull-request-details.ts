@@ -3,7 +3,7 @@ import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PullRequestService } from '../../../services/pull-request.service';
-import { PullRequest, PullRequestFile, PullRequestComment, SatdAnalysisResponse, AnalysisRunSummary, AnalysisRunDetail } from '../../../models/pull-request.model';
+import { PullRequest, PullRequestFile, PullRequestComment, SatdAnalysisResponse, AnalysisRunSummary, AnalysisRunDetail, SavedSatdFinding } from '../../../models/pull-request.model';
 import { DiffRow, findSatdLocation, isSatdRow, parseUnifiedDiff } from './unified-diff';
 
 @Component({
@@ -19,6 +19,7 @@ export class PullRequestDetails implements OnInit, OnDestroy {
   private analysisSubscription?: Subscription;
   private historySubscription?: Subscription;
   private historyDetailSubscription?: Subscription;
+  private suggestionSubscriptions = new Map<number, Subscription>();
 
   analysisResults = signal<SatdAnalysisResponse[] | null>(null);
   analyzing = signal(false);
@@ -29,6 +30,8 @@ export class PullRequestDetails implements OnInit, OnDestroy {
   selectedHistory = signal<AnalysisRunDetail | null>(null);
   historyDetailLoading = signal(false);
   historyDetailError = signal<string | null>(null);
+  suggestionLoading = signal<Set<number>>(new Set());
+  suggestionErrors = signal<Record<number, string>>({});
 
   prId = signal<number | null>(null);
   pullRequest = signal<PullRequest | null>(null);
@@ -161,7 +164,44 @@ export class PullRequestDetails implements OnInit, OnDestroy {
     });
   }
 
+  generateSuggestion(finding: SavedSatdFinding) {
+    const prId = this.prId();
+    const runId = this.selectedHistory()?.run.id;
+    if (!prId || !runId || finding.aiSuggestion || this.suggestionLoading().has(finding.id)) return;
+    this.suggestionLoading.update(ids => new Set(ids).add(finding.id));
+    this.suggestionErrors.update(errors => { const next = { ...errors }; delete next[finding.id]; return next; });
+    const subscription = this.prService.generateSuggestion(prId, runId, finding.id).subscribe({
+      next: response => {
+        if (response.status === 'AVAILABLE' && response.suggestion) {
+          this.selectedHistory.update(detail => detail?.run.id === runId ? {
+            ...detail, findings: detail.findings.map(current => current.id === finding.id ? {
+              ...current, aiSuggestion: response.suggestion, aiSuggestionGeneratedAt: response.generatedAt,
+              aiSuggestionProviderModel: response.providerModel, aiSuggestionPromptVersion: response.promptVersion
+            } : current)
+          } : detail);
+        } else {
+          this.suggestionErrors.update(errors => ({ ...errors, [finding.id]: response.reason || 'Suggestion unavailable. Retry.' }));
+        }
+        this.finishSuggestion(finding.id);
+      },
+      error: () => {
+        this.suggestionErrors.update(errors => ({ ...errors, [finding.id]: 'Suggestion unavailable. Retry.' }));
+        this.finishSuggestion(finding.id);
+      }
+    });
+    this.suggestionSubscriptions.set(finding.id, subscription);
+  }
+
+  private finishSuggestion(id: number) {
+    this.suggestionLoading.update(ids => { const next = new Set(ids); next.delete(id); return next; });
+    this.suggestionSubscriptions.delete(id);
+  }
+
   private resetHistory() {
+    this.suggestionSubscriptions.forEach(subscription => subscription.unsubscribe());
+    this.suggestionSubscriptions.clear();
+    this.suggestionLoading.set(new Set());
+    this.suggestionErrors.set({});
     this.historySubscription?.unsubscribe();
     this.historyDetailSubscription?.unsubscribe();
     this.historyRuns.set([]);
@@ -202,6 +242,7 @@ export class PullRequestDetails implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.suggestionSubscriptions.forEach(subscription => subscription.unsubscribe());
     this.analysisSubscription?.unsubscribe();
     this.historySubscription?.unsubscribe();
     this.historyDetailSubscription?.unsubscribe();

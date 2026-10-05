@@ -22,7 +22,7 @@ public class PullRequest {
     @Column(name = "github_pr_id", nullable = false)
     private Long githubPrId;
 
-    @Column(nullable = false)
+    @Column(name = "pr_number", nullable = false)
     private Integer number;
 
     @Column(nullable = false)
@@ -34,7 +34,7 @@ public class PullRequest {
     @Column(name = "html_url")
     private String htmlUrl;
 
-    @Column(columnDefinition = "TEXT")
+    @Lob
     private String body;
 
     @Column(name = "head_sha")

@@ -20,6 +20,8 @@ spring:
             client-secret: test-client-secret
 
 app:
+  database:
+    test-mode: true
   jwt:
     secret: thisisaverylongsecretkeyforjwtsigningfortestingpurposes
     expiration-ms: 86400000

@@ -47,7 +47,8 @@ public class SATDFinding {
     @Column(name = "debt_category")
     private String debtCategory;
 
-    @Column(name = "category_reason", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "category_reason")
     private String categoryReason;
 
     @Column(name = "category_rule_version")
@@ -56,7 +57,8 @@ public class SATDFinding {
     @Column(name = "severity_score")
     private Integer severityScore;
 
-    @Column(name = "severity_reason", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "severity_reason")
     private String severityReason;
 
     @Column(name = "severity_rule_version")
@@ -71,7 +73,8 @@ public class SATDFinding {
     @Column(name = "method_metrics_rule_version")
     private String methodMetricsRuleVersion;
 
-    @Column(name = "risk_evidence", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "risk_evidence")
     private String riskEvidence;
 
     @Column(name = "risk_evidence_rule_version")
@@ -80,11 +83,22 @@ public class SATDFinding {
     @Column(name = "security_flag")
     private Boolean securityFlag;
 
-    @Column(name = "comment_text", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "comment_text")
     private String commentText;
 
-    @Column(name = "ai_suggestion", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "ai_suggestion")
     private String aiSuggestion;
+
+    @Column(name = "ai_suggestion_generated_at")
+    private LocalDateTime aiSuggestionGeneratedAt;
+
+    @Column(name = "ai_suggestion_provider_model")
+    private String aiSuggestionProviderModel;
+
+    @Column(name = "ai_suggestion_prompt_version")
+    private String aiSuggestionPromptVersion;
 
     @Column(name = "line_number")
     private Integer lineNumber;

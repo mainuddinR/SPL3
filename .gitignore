@@ -94,4 +94,5 @@ tools/pgsql/
 data/
 ml-service/data/
 .tmp/
+.local/
 __MACOSX/

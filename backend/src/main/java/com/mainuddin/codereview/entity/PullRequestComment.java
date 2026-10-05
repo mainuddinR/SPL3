@@ -26,7 +26,7 @@ public class PullRequestComment {
 
     private Integer position;
 
-    @Column(columnDefinition = "TEXT")
+    @Lob
     private String body;
 
     @Column(name = "user_login")

@@ -63,7 +63,7 @@ public class AnalysisHistoryService {
     }
 
     private SavedSatdFindingDTO finding(SATDFinding finding) {
-        return new SavedSatdFindingDTO(finding.getFilename(), finding.getLineNumber(), finding.getCommentText(),
+        return new SavedSatdFindingDTO(finding.getId(), finding.getFilename(), finding.getLineNumber(), finding.getCommentText(),
                 finding.getPrecedingCode(), finding.getSucceedingCode(), "SATD", finding.getSatdProbability(),
                 finding.getNonSatdProbability(), finding.getConfidence(),
                 finding.getCategoryRuleVersion() == null ? "NOT_ASSESSED" :
@@ -73,6 +73,8 @@ public class AnalysisHistoryService {
                         finding.getSeverityScore() == null ? "NOT_ASSESSED" : "ASSESSED",
                 finding.getSeverityScore(), finding.getSeverityReason(), finding.getSeverityRuleVersion(),
                 finding.getMethodLength(), finding.getMethodComplexity(), finding.getMethodMetricsRuleVersion(),
-                finding.getRiskEvidence(), finding.getRiskEvidenceRuleVersion());
+                finding.getRiskEvidence(), finding.getRiskEvidenceRuleVersion(), finding.getAiSuggestion(),
+                finding.getAiSuggestionGeneratedAt(), finding.getAiSuggestionProviderModel(),
+                finding.getAiSuggestionPromptVersion());
     }
 }

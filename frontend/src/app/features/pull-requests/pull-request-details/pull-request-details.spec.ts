@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { BehaviorSubject, Subject, of } from 'rxjs';
-import { AnalysisRunDetail, AnalysisRunSummary, PullRequest, SatdAnalysisResponse } from '../../../models/pull-request.model';
+import { AnalysisRunDetail, AnalysisRunSummary, PullRequest, SatdAnalysisResponse, SavedSatdFinding, SuggestionResponse } from '../../../models/pull-request.model';
 import { PullRequestService } from '../../../services/pull-request.service';
 import { PullRequestDetails } from './pull-request-details';
 
@@ -11,6 +11,7 @@ describe('PullRequestDetails history', () => {
   let history$: Subject<AnalysisRunSummary[]>;
   let detail$: Subject<AnalysisRunDetail>;
   let analysis$: Subject<SatdAnalysisResponse[]>;
+  let suggestion$: Subject<SuggestionResponse>;
   let service: jasmine.SpyObj<PullRequestService>;
   const params = new BehaviorSubject(convertToParamMap({ prId: '19' }));
   const pr: PullRequest = {
@@ -30,6 +31,8 @@ describe('PullRequestDetails history', () => {
     severityRuleVersion: 'severity-rules-v1', methodLength: 51, methodComplexity: 5,
     methodMetricsRuleVersion: 'method-metrics-v1', riskEvidence: null, riskEvidenceRuleVersion: null
   };
+  const savedFinding: SavedSatdFinding = { ...finding, id: 12, label: 'SATD', debtCategory: 'DESIGN',
+    aiSuggestion: null, aiSuggestionGeneratedAt: null, aiSuggestionProviderModel: null, aiSuggestionPromptVersion: null };
   const pageText = () => fixture.nativeElement.textContent as string;
   const showHistory = () => { component.selectedTab.set('history'); fixture.detectChanges(); };
 
@@ -37,9 +40,10 @@ describe('PullRequestDetails history', () => {
     history$ = new Subject();
     detail$ = new Subject();
     analysis$ = new Subject();
+    suggestion$ = new Subject();
     service = jasmine.createSpyObj<PullRequestService>('PullRequestService', [
       'getPullRequest', 'getPullRequestFiles', 'getPullRequestComments',
-      'getAnalysisRuns', 'getAnalysisRun', 'analyzePullRequest', 'syncPullRequestDetails'
+      'getAnalysisRuns', 'getAnalysisRun', 'analyzePullRequest', 'syncPullRequestDetails', 'generateSuggestion'
     ]);
     service.getPullRequest.and.returnValue(of(pr));
     service.getPullRequestFiles.and.returnValue(of([]));
@@ -47,6 +51,7 @@ describe('PullRequestDetails history', () => {
     service.getAnalysisRuns.and.callFake(() => history$.asObservable());
     service.getAnalysisRun.and.callFake(() => detail$.asObservable());
     service.analyzePullRequest.and.callFake(() => analysis$.asObservable());
+    service.generateSuggestion.and.callFake(() => suggestion$.asObservable());
     await TestBed.configureTestingModule({
       imports: [PullRequestDetails],
       providers: [
@@ -101,7 +106,7 @@ describe('PullRequestDetails history', () => {
     history$.next([saved]);
     showHistory();
     component.selectHistoryRun(saved);
-    detail$.next({ run: saved, findings: [{ ...finding, label: 'SATD', debtCategory: 'DESIGN' }] });
+    detail$.next({ run: saved, findings: [savedFinding] });
     fixture.detectChanges();
     expect(pageText()).toContain('Saved historical result');
     expect(pageText()).toContain('// TODO: fix this');
@@ -136,12 +141,12 @@ describe('PullRequestDetails history', () => {
     history$.next([saved]);
     showHistory();
     component.selectHistoryRun(saved);
-    detail$.next({ run: saved, findings: [{ ...finding, label: 'SATD', debtCategory: 'UNCLASSIFIED', categoryReason: 'No explicit category evidence', categoryRuleVersion: 'category-rules-v1' }] });
+    detail$.next({ run: saved, findings: [{ ...savedFinding, debtCategory: 'UNCLASSIFIED', categoryReason: 'No explicit category evidence', categoryRuleVersion: 'category-rules-v1' }] });
     fixture.detectChanges();
     expect(pageText()).toContain('Debt category: Unclassified');
     component.selectHistoryRun(saved);
     component.selectHistoryRun(saved);
-    detail$.next({ run: saved, findings: [{ ...finding, label: 'SATD', debtCategory: 'NOT_ASSESSED', categoryReason: null, categoryRuleVersion: null }] });
+    detail$.next({ run: saved, findings: [{ ...savedFinding, debtCategory: 'NOT_ASSESSED', categoryReason: null, categoryRuleVersion: null }] });
     fixture.detectChanges();
     expect(pageText()).toContain('Debt category: Not Assessed');
   });
@@ -158,8 +163,47 @@ describe('PullRequestDetails history', () => {
     history$.next([saved]);
     showHistory();
     component.selectHistoryRun(saved);
-    detail$.next({ run: saved, findings: [{ ...finding, label: 'SATD', debtCategory: 'DESIGN', severityState: 'LEGACY', severityScore: null }] });
+    detail$.next({ run: saved, findings: [{ ...savedFinding, severityState: 'LEGACY', severityScore: null }] });
     fixture.detectChanges();
     expect(pageText()).toContain('Not assessed by this historical run');
+  });
+
+  it('generates only after explicit action and updates the saved finding', () => {
+    history$.next([{ ...run, satdFindingCount: 1 }]);
+    showHistory();
+    component.selectHistoryRun(run);
+    detail$.next({ run, findings: [savedFinding] });
+    fixture.detectChanges();
+    expect(pageText()).toContain('external AI provider');
+    expect(service.generateSuggestion).not.toHaveBeenCalled();
+    component.generateSuggestion(savedFinding);
+    component.generateSuggestion(savedFinding);
+    expect(service.generateSuggestion).toHaveBeenCalledOnceWith(19, 3, 12);
+    fixture.detectChanges();
+    expect(pageText()).toContain('Generating suggestion...');
+    suggestion$.next({ findingId: 12, status: 'AVAILABLE', suggestion: 'Summary\nReview this', generatedAt: '2026-09-24T10:02:00', providerModel: 'test-model', promptVersion: 'llm-suggestion-v1', reason: null });
+    fixture.detectChanges();
+    expect(pageText()).toContain('Review this');
+    expect(pageText()).not.toContain('Generate AI Suggestion');
+  });
+
+  it('shows existing advice without a request and keeps provider failures safe', () => {
+    history$.next([{ ...run, satdFindingCount: 1 }]);
+    showHistory();
+    component.selectHistoryRun(run);
+    detail$.next({ run, findings: [{ ...savedFinding, aiSuggestion: 'Saved human-reviewed advice' }] });
+    fixture.detectChanges();
+    expect(pageText()).toContain('Saved human-reviewed advice');
+    expect(pageText()).not.toContain('Generate AI Suggestion');
+    expect(service.generateSuggestion).not.toHaveBeenCalled();
+
+    component.selectHistoryRun(run);
+    component.selectHistoryRun(run);
+    detail$.next({ run, findings: [savedFinding] });
+    component.generateSuggestion(savedFinding);
+    suggestion$.error(new Error('private provider error'));
+    fixture.detectChanges();
+    expect(pageText()).toContain('Suggestion unavailable. Retry.');
+    expect(pageText()).not.toContain('private provider error');
   });
 });

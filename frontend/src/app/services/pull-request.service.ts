@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { PullRequest, PullRequestFile, PullRequestComment, SatdAnalysisResponse, AnalysisRunSummary, AnalysisRunDetail } from '../models/pull-request.model';
+import { PullRequest, PullRequestFile, PullRequestComment, SatdAnalysisResponse, AnalysisRunSummary, AnalysisRunDetail, SuggestionResponse } from '../models/pull-request.model';
 
 @Injectable({
   providedIn: 'root'
@@ -20,6 +20,10 @@ export class PullRequestService {
 
   getAnalysisRun(prId: number, runId: number): Observable<AnalysisRunDetail> {
     return this.http.get<AnalysisRunDetail>(`${this.apiUrl}/${prId}/analysis-runs/${runId}`);
+  }
+
+  generateSuggestion(prId: number, runId: number, findingId: number): Observable<SuggestionResponse> {
+    return this.http.post<SuggestionResponse>(`${this.apiUrl}/${prId}/analysis-runs/${runId}/findings/${findingId}/suggestion`, null);
   }
 
   syncPullRequests(projectId: number): Observable<any> {

@@ -1,6 +1,7 @@
 package com.mainuddin.codereview.dto;
 
 public record SavedSatdFindingDTO(
+        Long id,
         String filename,
         Integer lineNumber,
         String commentText,
@@ -21,5 +22,9 @@ public record SavedSatdFindingDTO(
         Integer methodComplexity,
         String methodMetricsRuleVersion,
         String riskEvidence,
-        String riskEvidenceRuleVersion
+        String riskEvidenceRuleVersion,
+        String aiSuggestion,
+        java.time.LocalDateTime aiSuggestionGeneratedAt,
+        String aiSuggestionProviderModel,
+        String aiSuggestionPromptVersion
 ) {}

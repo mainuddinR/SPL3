@@ -17,6 +17,8 @@ import com.mainuddin.codereview.service.PullRequestAnalysisService;
 import com.mainuddin.codereview.service.AnalysisHistoryService;
 import com.mainuddin.codereview.dto.AnalysisRunSummaryDTO;
 import com.mainuddin.codereview.dto.AnalysisRunDetailDTO;
+import com.mainuddin.codereview.dto.SuggestionResponseDTO;
+import com.mainuddin.codereview.service.SuggestionGenerationService;
 
 @RestController
 @RequestMapping("/api/prs")
@@ -29,19 +31,22 @@ public class PullRequestController {
     private final PullRequestCommentRepository pullRequestCommentRepository;
     private final PullRequestAnalysisService pullRequestAnalysisService;
     private final AnalysisHistoryService analysisHistoryService;
+    private final SuggestionGenerationService suggestionGenerationService;
 
     public PullRequestController(GithubService githubService, 
                                  PullRequestRepository pullRequestRepository,
                                  PullRequestFileRepository pullRequestFileRepository,
                                  PullRequestCommentRepository pullRequestCommentRepository,
                                  PullRequestAnalysisService pullRequestAnalysisService,
-                                 AnalysisHistoryService analysisHistoryService) {
+                                 AnalysisHistoryService analysisHistoryService,
+                                 SuggestionGenerationService suggestionGenerationService) {
         this.githubService = githubService;
         this.pullRequestRepository = pullRequestRepository;
         this.pullRequestFileRepository = pullRequestFileRepository;
         this.pullRequestCommentRepository = pullRequestCommentRepository;
         this.pullRequestAnalysisService = pullRequestAnalysisService;
         this.analysisHistoryService = analysisHistoryService;
+        this.suggestionGenerationService = suggestionGenerationService;
     }
 
     @PostMapping("/{prId}/analyze")
@@ -58,6 +63,12 @@ public class PullRequestController {
     @GetMapping("/{prId}/analysis-runs/{runId}")
     public ResponseEntity<AnalysisRunDetailDTO> getAnalysisRun(@PathVariable Long prId, @PathVariable Long runId) {
         return ResponseEntity.ok(analysisHistoryService.detail(prId, runId));
+    }
+
+    @PostMapping("/{prId}/analysis-runs/{runId}/findings/{findingId}/suggestion")
+    public ResponseEntity<SuggestionResponseDTO> generateSuggestion(@PathVariable Long prId,
+            @PathVariable Long runId, @PathVariable Long findingId) {
+        return ResponseEntity.ok(suggestionGenerationService.generate(prId, runId, findingId));
     }
 
     @PostMapping("/project/{projectId}/sync")

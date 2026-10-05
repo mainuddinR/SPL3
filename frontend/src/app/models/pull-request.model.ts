@@ -36,8 +36,23 @@ export interface AnalysisRunSummary {
 }
 
 export interface SavedSatdFinding extends Omit<SatdAnalysisResponse, 'label'> {
+    id: number;
     label: 'SATD';
     debtCategory: DebtCategory;
+    aiSuggestion: string | null;
+    aiSuggestionGeneratedAt: string | null;
+    aiSuggestionProviderModel: string | null;
+    aiSuggestionPromptVersion: string | null;
+}
+
+export interface SuggestionResponse {
+    findingId: number;
+    status: 'AVAILABLE' | 'UNAVAILABLE';
+    suggestion: string | null;
+    generatedAt: string | null;
+    providerModel: string | null;
+    promptVersion: string | null;
+    reason: string | null;
 }
 
 export interface AnalysisRunDetail {

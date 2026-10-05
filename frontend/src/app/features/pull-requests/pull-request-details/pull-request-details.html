@@ -240,6 +240,20 @@
                   <pre *ngIf="finding.succeedingCode; else noSavedSucceedingCode" class="bg-gray-900 text-gray-300 rounded p-4 overflow-x-auto whitespace-pre font-mono text-sm"><code>{{ finding.succeedingCode }}</code></pre>
                   <ng-template #noSavedSucceedingCode><p class="text-sm text-gray-500">No succeeding code saved.</p></ng-template>
                 </details>
+                <div class="mt-4 border-t border-gray-200 pt-4" [attr.aria-busy]="suggestionLoading().has(finding.id)">
+                  <div *ngIf="finding.aiSuggestion; else generateSavedSuggestion">
+                    <h4 class="font-semibold text-sm mb-2">AI-generated suggestion</h4>
+                    <p class="text-xs text-gray-500 mb-2">Advisory only; review before applying.</p>
+                    <p class="text-sm text-gray-800 whitespace-pre-wrap break-words">{{ finding.aiSuggestion }}</p>
+                    <p *ngIf="finding.aiSuggestionGeneratedAt" class="text-xs text-gray-500 mt-2">Generated {{ finding.aiSuggestionGeneratedAt | date:'medium' }}<span *ngIf="finding.aiSuggestionProviderModel"> · {{ finding.aiSuggestionProviderModel }}</span></p>
+                  </div>
+                  <ng-template #generateSavedSuggestion>
+                    <p class="text-sm text-gray-600 mb-2">Generating a suggestion sends this saved code excerpt to an external AI provider. The advice requires human review.</p>
+                    <button type="button" (click)="generateSuggestion(finding)" [disabled]="suggestionLoading().has(finding.id)"
+                            class="text-sm text-blue-600 hover:underline disabled:opacity-50">{{ suggestionLoading().has(finding.id) ? 'Generating suggestion...' : 'Generate AI Suggestion' }}</button>
+                    <p *ngIf="suggestionErrors()[finding.id]" role="alert" class="text-sm text-red-700 mt-2">{{ suggestionErrors()[finding.id] }}</p>
+                  </ng-template>
+                </div>
               </article>
             </div>
           </div>
