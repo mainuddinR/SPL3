@@ -49,4 +49,25 @@ class SuggestionSnapshotServiceTest {
                 SATDFinding.builder().id(3L).filename("Main.java").commentText("// TODO").build()));
         assertEquals("owner/repo", service.load(1L, 2L, 3L).repository());
     }
+
+    @Test void anotherOwnerRunOrFindingNeverProducesAProviderSnapshot() {
+        authenticate();
+        when(prs.findByIdAndGithubProjectUserGithubId(1L, "owner-id")).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> service.load(1L, 2L, 3L));
+        verifyNoInteractions(runs, findings);
+
+        PullRequest pr = PullRequest.builder().id(1L)
+                .githubProject(GithubProject.builder().fullName("owner/repo-a").build()).build();
+        when(prs.findByIdAndGithubProjectUserGithubId(1L, "owner-id")).thenReturn(Optional.of(pr));
+        assertThrows(ResourceNotFoundException.class, () -> service.load(1L, 99L, 3L));
+        verify(findings, never()).findByIdAndAnalysisRunId(anyLong(), anyLong());
+
+        when(runs.findByIdAndPullRequestId(2L, 1L)).thenReturn(Optional.of(
+                AnalysisRun.builder().id(2L).status(AnalysisRunStatus.FAILED).build()));
+        assertThrows(ResourceNotFoundException.class, () -> service.load(1L, 2L, 3L));
+        when(runs.findByIdAndPullRequestId(2L, 1L)).thenReturn(Optional.of(
+                AnalysisRun.builder().id(2L).status(AnalysisRunStatus.COMPLETED).build()));
+        assertThrows(ResourceNotFoundException.class, () -> service.load(1L, 2L, 3L));
+        verify(findings).findByIdAndAnalysisRunId(3L, 2L);
+    }
 }

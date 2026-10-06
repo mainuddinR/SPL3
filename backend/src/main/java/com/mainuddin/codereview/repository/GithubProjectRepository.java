@@ -13,4 +13,5 @@ public interface GithubProjectRepository extends JpaRepository<GithubProject, Lo
     List<GithubProject> findByUserGithubIdOrderByIdAsc(String githubId);
     boolean existsByGithubRepoIdAndUserId(Long githubRepoId, Long userId);
     Optional<GithubProject> findByGithubRepoIdAndUserId(Long githubRepoId, Long userId);
+    long countByUserGithubId(String githubId);
 }

@@ -49,6 +49,16 @@ public class AnalysisHistoryService {
         return new AnalysisRunDetailDTO(summary(run), findings);
     }
 
+    @Transactional(readOnly = true)
+    public SavedSatdFindingDTO finding(Long prId, Long runId, Long findingId) {
+        verifyOwnership(prId);
+        runRepository.findByIdAndPullRequestId(runId, prId)
+                .orElseThrow(() -> new ResourceNotFoundException("Analysis run not found"));
+        SATDFinding saved = findingRepository.findByIdAndAnalysisRunId(findingId, runId)
+                .orElseThrow(() -> new ResourceNotFoundException("SATD finding not found"));
+        return finding(saved);
+    }
+
     private void verifyOwnership(Long prId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() ||

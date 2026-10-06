@@ -1,0 +1,73 @@
+<div class="max-w-5xl mx-auto space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
+    <p class="text-sm text-gray-600 mt-1">Your account, local appearance preferences, and safe service status.</p>
+  </div>
+
+  <div *ngIf="loading()" role="status" class="space-y-3">
+    <div class="h-32 rounded-xl bg-gray-100 animate-pulse"></div><div class="h-32 rounded-xl bg-gray-100 animate-pulse"></div>
+  </div>
+  <div *ngIf="error()" role="alert" class="bg-red-50 border-l-4 border-red-400 p-4 text-red-700">
+    Status could not be loaded. <button type="button" (click)="refresh()" class="underline">Try again</button>.
+  </div>
+
+  <section *ngIf="status() as current" class="bg-white border border-gray-200 rounded-xl shadow-sm p-6" aria-labelledby="account-heading">
+    <h2 id="account-heading" class="text-lg font-semibold mb-4">Account & GitHub</h2>
+    <div class="flex flex-wrap items-center gap-4">
+      <img *ngIf="current.avatarUrl" [src]="current.avatarUrl" alt="GitHub avatar" class="w-14 h-14 rounded-full border">
+      <div><p class="font-medium">{{ current.username }}</p><p class="text-sm text-gray-500">GitHub ID {{ current.githubId }}</p></div>
+      <span class="ml-auto text-sm rounded-full px-3 py-1" [class.bg-green-100]="current.githubSessionConnected" [class.text-green-700]="current.githubSessionConnected"
+            [class.bg-red-100]="!current.githubSessionConnected" [class.text-red-700]="!current.githubSessionConnected">
+        {{ current.githubSessionConnected ? 'GitHub session connected' : 'GitHub re-login required' }}
+      </span>
+    </div>
+    <p class="text-sm text-gray-600 mt-4">Connected repositories: {{ current.connectedRepositoryCount }}</p>
+    <button type="button" (click)="signOut()" class="mt-4 border border-red-300 text-red-700 rounded px-4 py-2 hover:bg-red-50">Sign out</button>
+  </section>
+
+  <section class="bg-white border border-gray-200 rounded-xl shadow-sm p-6" aria-labelledby="appearance-heading">
+    <h2 id="appearance-heading" class="text-lg font-semibold mb-1">Appearance</h2>
+    <p class="text-sm text-gray-500 mb-4">Saved only in this browser.</p>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="text-sm font-medium">Theme
+        <select [value]="preferences.theme()" (change)="changeTheme($event)" class="block w-full mt-2 border rounded px-3 py-2">
+          <option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option>
+        </select>
+      </label>
+      <label class="text-sm font-medium">Results per page
+        <select [value]="preferences.pageSize()" (change)="changePageSize($event)" class="block w-full mt-2 border rounded px-3 py-2">
+          <option [value]="10">10</option><option [value]="25">25</option><option [value]="50">50</option>
+        </select>
+      </label>
+    </div>
+    <button type="button" (click)="reset()" class="mt-4 text-blue-600 hover:underline">Reset UI Preferences</button>
+  </section>
+
+  <section *ngIf="status() as current" class="bg-white border border-gray-200 rounded-xl shadow-sm p-6" aria-labelledby="ai-settings-heading">
+    <h2 id="ai-settings-heading" class="text-lg font-semibold mb-3">AI Suggestions</h2>
+    <p class="text-sm font-medium">{{ !current.ai.llmEnabled ? 'Disabled by server' : current.ai.apiKeyConfigured ? 'Enabled and configured' : 'Provider not configured' }}</p>
+    <p class="text-sm text-gray-600 mt-1">Model: {{ current.ai.model }}</p>
+    <p class="text-sm text-gray-600 mt-3">Suggestions are generated manually from limited saved SATD evidence. Existing advice is saved with Analysis History. Provider failures do not change analysis results.</p>
+  </section>
+
+  <section *ngIf="status() as current" class="bg-white border border-gray-200 rounded-xl shadow-sm p-6" aria-labelledby="integration-heading">
+    <h2 id="integration-heading" class="text-lg font-semibold mb-3">Integration Status</h2>
+    <dl class="grid gap-3 text-sm sm:grid-cols-2">
+      <div class="border rounded p-3"><dt class="text-gray-500">GitHub session</dt><dd class="font-medium">{{ current.githubSessionConnected ? 'Connected' : 'Re-login required' }}</dd></div>
+      <div class="border rounded p-3"><dt class="text-gray-500">Internal ML endpoint</dt><dd class="font-medium">{{ current.mlServiceAvailable ? 'Available' : 'Unavailable' }}</dd></div>
+      <div class="border rounded p-3"><dt class="text-gray-500">AI suggestion provider</dt><dd class="font-medium">{{ !current.ai.llmEnabled ? 'Disabled' : current.ai.apiKeyConfigured ? 'Enabled & configured' : 'Not configured' }}</dd></div>
+      <div class="border rounded p-3"><dt class="text-gray-500">Database</dt><dd class="font-medium">{{ current.databaseConnected ? 'Connected' : 'Unavailable' }}</dd></div>
+    </dl>
+    <p class="text-xs text-gray-500 mt-3">Availability reflects a quick endpoint check; it does not run CodeBERT inference.</p>
+  </section>
+
+  <section class="bg-white border border-gray-200 rounded-xl shadow-sm p-6" aria-labelledby="privacy-heading">
+    <h2 id="privacy-heading" class="text-lg font-semibold mb-3">Privacy & Processing</h2>
+    <ul class="list-disc pl-5 space-y-2 text-sm text-gray-700">
+      <li>CodeBERT inference runs in the configured internal ML service.</li>
+      <li>AI remediation suggestions are optional and start only when you select Generate AI Suggestion.</li>
+      <li>A limited saved finding excerpt is sent to the configured external provider after that action.</li>
+      <li>Generated suggestions are stored with the analysis history.</li>
+    </ul>
+  </section>
+</div>

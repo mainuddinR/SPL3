@@ -67,17 +67,36 @@ public class PullRequestAnalysisService {
 
         AnalysisInputSnapshotService.Snapshot input = inputSnapshotService.capture(pr.getId());
         Long runId = runPersistenceService.start(input.pullRequest());
+        return process(input, runId, ProgressObserver.NO_OP);
+    }
+
+    public interface ProgressObserver {
+        ProgressObserver NO_OP = new ProgressObserver() {};
+        default void total(int candidates) {}
+        default void result(SatdAnalysisResponseDTO response) {}
+    }
+
+    public List<SatdAnalysisResponseDTO> process(AnalysisInputSnapshotService.Snapshot input,
+                                                  Long runId, ProgressObserver observer) {
         try {
             List<PullRequestFile> files = input.files();
             List<SatdAnalysisResponseDTO> analysisResults = new ArrayList<>();
             List<SATDFinding> findings = new ArrayList<>();
             GithubSourceRetrievalService.Session sourceSession = null;
 
+            record WorkItem(PullRequestFile file, SatdCandidateDTO candidate) {}
+            List<WorkItem> work = new ArrayList<>();
             for (PullRequestFile file : files) {
                 if (file.getFilename() != null && file.getFilename().endsWith(".java") && file.getPatch() != null) {
-                    List<SatdCandidateDTO> candidates = satdExtractionService.extractCandidates(file);
-                
-                    for (SatdCandidateDTO candidate : candidates) {
+                    for (SatdCandidateDTO candidate : satdExtractionService.extractCandidates(file))
+                        work.add(new WorkItem(file, candidate));
+                }
+            }
+            observer.total(work.size());
+
+            for (WorkItem item : work) {
+                    PullRequestFile file = item.file();
+                    SatdCandidateDTO candidate = item.candidate();
                         CodeBertRequestDTO request = CodeBertRequestDTO.builder()
                                 .comment(candidate.getCommentText())
                                 .precedingCode(candidate.getPrecedingCode())
@@ -129,6 +148,7 @@ public class PullRequestAnalysisService {
                                 .build();
 
                         analysisResults.add(responseDTO);
+                        observer.result(responseDTO);
                         if ("SATD".equals(mlResponse.getLabel())) {
                             findings.add(SATDFinding.builder()
                                     .filename(candidate.getFilename())
@@ -153,8 +173,6 @@ public class PullRequestAnalysisService {
                                     .detectedAt(LocalDateTime.now())
                                     .build());
                         }
-                    }
-                }
             }
 
             runPersistenceService.complete(runId, analysisResults.size(), findings);

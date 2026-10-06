@@ -103,4 +103,16 @@ describe('Dashboard', () => {
     for (let score = 1; score <= 5; score++) expect(severityText).toMatch(new RegExp(`Severity ${score}\\s*1`));
     expect(severityText).toMatch(/Not Assessed\s*2/);
   });
+
+  it('makes all four summary cards real drill-down links', () => {
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    http.expectOne(url).flush(data);
+    fixture.detectChanges();
+    const paths = Array.from(fixture.nativeElement.querySelectorAll('app-stats-card a') as NodeListOf<HTMLAnchorElement>)
+      .map(link => new URL(link.href).pathname);
+    expect(paths).toEqual(['/dashboard/repositories', '/dashboard/pull-requests',
+      '/dashboard/analyzed-prs', '/dashboard/findings']);
+    expect(fixture.nativeElement.textContent).toContain('Current SATD Findings');
+  });
 });

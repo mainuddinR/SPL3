@@ -21,9 +21,10 @@ app:
     url: ${ML_SERVICE_URL:http://localhost:8001}
   llm:
     enabled: ${LLM_ENABLED:false}
-    api-key: ${OPENAI_API_KEY:}
-    model: ${OPENAI_MODEL:gpt-5-mini}
-    allowed-repositories: ${LLM_ALLOWED_REPOSITORIES:}
+    api-key: ${GROQ_API_KEY:${OPENAI_API_KEY:}}
+    model: ${GROQ_MODEL:${OPENAI_MODEL:gpt-5-mini}}
+    base-url: ${LLM_BASE_URL:https://api.openai.com/v1}
+    send-store-flag: ${LLM_SEND_STORE_FLAG:true}
     timeout-seconds: ${LLM_TIMEOUT_SECONDS:20}
 
 server:

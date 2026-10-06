@@ -1,0 +1,51 @@
+<div class="max-w-5xl mx-auto space-y-6">
+  <a routerLink="/dashboard/findings" class="text-blue-600 hover:underline">← Back to Current Findings</a>
+  <p *ngIf="loading()" role="status">Loading SATD finding...</p>
+  <div *ngIf="error()" role="alert" class="bg-red-50 text-red-700 p-4 rounded">Finding unavailable. <button type="button" (click)="load()" class="underline">Try again</button>.</div>
+  <ng-container *ngIf="detail() as item">
+    <header class="bg-white border rounded-xl p-6 space-y-2">
+      <h1 class="text-2xl font-bold">SATD Finding</h1>
+      <p><span class="font-medium">Repository:</span> {{ item.repository }}</p>
+      <p><span class="font-medium">Pull request:</span> #{{ item.pullRequestNumber }} {{ item.pullRequestTitle }}</p>
+      <p><span class="font-medium">Analysis run:</span> #{{ item.runId }} · Completed {{ item.completedAt | date:'medium' }}</p>
+      <nav class="flex flex-wrap gap-4 text-sm pt-3 border-t" aria-label="Finding actions">
+        <a [routerLink]="['/dashboard/pulls', item.pullRequestId]" class="text-blue-600 hover:underline">View PR</a>
+        <a [routerLink]="['/dashboard/pulls', item.pullRequestId]" [queryParams]="{tab:'files',filename:item.finding.filename,line:item.finding.lineNumber}" class="text-blue-600 hover:underline">View in Diff</a>
+        <a [routerLink]="['/dashboard/pulls', item.pullRequestId]" [queryParams]="{tab:'history',runId:item.runId,findingId:item.finding.id}" class="text-blue-600 hover:underline">View Analysis History</a>
+      </nav>
+    </header>
+    <section class="bg-white border rounded-xl p-6 space-y-4">
+      <h2 class="text-lg font-semibold">Saved finding details</h2>
+      <p class="font-mono break-all">{{ item.finding.filename }}:{{ item.finding.lineNumber }}</p>
+      <div class="flex flex-wrap gap-4 text-sm"><span>SATD probability: {{ item.finding.satdProbability | percent:'1.2-2' }}</span><span>Confidence: {{ item.finding.confidence | percent:'1.2-2' }}</span></div>
+      <p>Debt category: {{ item.finding.debtCategory.replace('_',' ') | titlecase }}<span *ngIf="item.finding.categoryReason" class="block text-sm text-gray-600">{{ item.finding.categoryReason }}</span></p>
+      <p>Severity: {{ item.finding.severityScore === null ? 'Not Assessed' : item.finding.severityScore + ' / 5' }}<span *ngIf="item.finding.severityReason" class="block text-sm text-gray-600">{{ item.finding.severityReason }}</span></p>
+      <div><h3 class="font-semibold mb-2">Extracted comment</h3><pre class="bg-gray-900 text-gray-100 rounded p-4 overflow-x-auto whitespace-pre">{{ item.finding.commentText }}</pre></div>
+      <div><h3 class="font-semibold mb-2">Preceding code</h3><pre class="bg-gray-900 text-gray-100 rounded p-4 overflow-x-auto whitespace-pre">{{ item.finding.precedingCode || 'No saved preceding code.' }}</pre></div>
+      <div><h3 class="font-semibold mb-2">Succeeding code</h3><pre class="bg-gray-900 text-gray-100 rounded p-4 overflow-x-auto whitespace-pre">{{ item.finding.succeedingCode || 'No saved succeeding code.' }}</pre></div>
+    </section>
+    <section class="bg-white border rounded-xl p-6 space-y-3">
+      <h2 class="text-lg font-semibold">AI Suggestion</h2>
+      <ng-container *ngIf="item.finding.aiSuggestion; else noSuggestion">
+        <p class="text-sm text-gray-600">AI-assisted remediation guidance</p>
+        <div class="grid gap-3 md:grid-cols-2">
+          <div *ngFor="let section of suggestionSections(item.finding.aiSuggestion)" class="border rounded p-3 min-w-0">
+            <h3 class="font-semibold">{{ section.title }}</h3><p class="whitespace-pre-wrap break-words">{{ section.text }}</p>
+          </div>
+        </div>
+        <details class="text-xs text-gray-700"><summary class="cursor-pointer text-blue-600">Details</summary>
+          <dl class="mt-2 space-y-1">
+            <div><dt class="inline font-semibold">Model: </dt><dd class="inline">{{ item.finding.aiSuggestionProviderModel || 'Unavailable' }}</dd></div>
+            <div><dt class="inline font-semibold">Generated: </dt><dd class="inline">{{ item.finding.aiSuggestionGeneratedAt ? (item.finding.aiSuggestionGeneratedAt | date:'medium') : 'Unavailable' }}</dd></div>
+            <div><dt class="inline font-semibold">Prompt version: </dt><dd class="inline">{{ item.finding.aiSuggestionPromptVersion || 'Unavailable' }}</dd></div>
+            <div *ngIf="suggestionReviewNote(item.finding.aiSuggestion)"><dt class="inline font-semibold">Review note: </dt><dd class="inline whitespace-pre-wrap">{{ suggestionReviewNote(item.finding.aiSuggestion) }}</dd></div>
+          </dl>
+        </details>
+      </ng-container>
+      <ng-template #noSuggestion>
+        <p class="text-sm text-gray-600">No saved AI suggestion. Open Analysis History to request one for this completed finding.</p>
+        <a [routerLink]="['/dashboard/pulls', item.pullRequestId]" [queryParams]="{tab:'history',runId:item.runId,findingId:item.finding.id}" class="text-blue-600 hover:underline">Open Analysis History</a>
+      </ng-template>
+    </section>
+  </ng-container>
+</div>

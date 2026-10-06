@@ -12,10 +12,10 @@
   <p class="text-sm text-gray-600 mb-5">Statistics describe saved findings from each PR's latest completed analysis of its stored diff. They are not a complete inventory of repository source code.</p>
 
   <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-    <app-stats-card title="Repositories" [value]="data.stats.repositoryCount" icon="folder" colorClass="bg-indigo-100 text-indigo-600" />
-    <app-stats-card title="Pull Requests" [value]="data.stats.pullRequestCount" icon="call_split" colorClass="bg-blue-100 text-blue-600" />
-    <app-stats-card title="Analyzed PRs" [value]="data.stats.analyzedPullRequestCount" icon="check_circle" colorClass="bg-teal-100 text-teal-600" />
-    <app-stats-card title="Current SATD Findings" [value]="data.stats.currentSatdFindingCount" icon="comment" colorClass="bg-amber-100 text-amber-700" />
+    <app-stats-card title="Repositories" [value]="data.stats.repositoryCount" icon="folder" route="/dashboard/repositories" colorClass="bg-indigo-100 text-indigo-600" />
+    <app-stats-card title="Pull Requests" [value]="data.stats.pullRequestCount" icon="call_split" route="/dashboard/pull-requests" colorClass="bg-blue-100 text-blue-600" />
+    <app-stats-card title="Analyzed PRs" [value]="data.stats.analyzedPullRequestCount" icon="check_circle" route="/dashboard/analyzed-prs" colorClass="bg-teal-100 text-teal-600" />
+    <app-stats-card title="Current SATD Findings" [value]="data.stats.currentSatdFindingCount" icon="comment" route="/dashboard/findings" colorClass="bg-amber-100 text-amber-700" />
   </div>
   <p *ngIf="data.stats.latestAnalysisAt" class="text-sm text-gray-600 mb-6">Latest completed analysis: {{ data.stats.latestAnalysisAt | date:'medium' }}</p>
 

@@ -1,0 +1,133 @@
+<div class="max-w-7xl mx-auto space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <a routerLink="/dashboard" class="text-sm text-blue-600 hover:underline focus-visible:outline">← Dashboard</a>
+      <h1 class="text-2xl font-bold text-gray-900 mt-2">
+        {{ mode === 'repositories' ? 'Connected Repositories' : mode === 'pull-requests' ? 'Pull Requests' : mode === 'analyzed-prs' ? 'Analyzed Pull Requests' : 'Current SATD Findings' }}
+      </h1>
+      <p class="text-sm text-gray-600 mt-1" *ngIf="mode === 'findings' || mode === 'analyzed-prs'">Only each owned PR's latest COMPLETED analysis contributes to this view.</p>
+    </div>
+    <span class="rounded-full bg-blue-50 text-blue-700 px-3 py-1 text-sm font-medium">{{ total() }} {{ mode === 'findings' ? 'findings' : 'items' }}</span>
+  </div>
+
+  <div *ngIf="mode !== 'repositories'" class="bg-white border border-gray-200 rounded-xl shadow-sm p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <label class="text-sm text-gray-700">Repository
+      <select [value]="repositoryId()" (change)="changeRepository($event)" class="mt-1 block w-full border rounded px-3 py-2">
+        <option value="">All repositories</option>
+        <option *ngFor="let repo of repositoryOptions()" [value]="repo.id">{{ repo.name }}</option>
+      </select>
+    </label>
+    <label *ngIf="mode === 'pull-requests'" class="text-sm text-gray-700">State
+      <select [value]="state()" (change)="changeState($event)" class="mt-1 block w-full border rounded px-3 py-2">
+        <option value="">Any state</option><option value="open">Open</option><option value="closed">Closed</option>
+      </select>
+    </label>
+    <label *ngIf="mode === 'pull-requests'" class="text-sm text-gray-700">Analysis
+      <select [value]="analyzedFilter()" (change)="changeAnalyzed($event)" class="mt-1 block w-full border rounded px-3 py-2">
+        <option value="">Any</option><option value="true">Analyzed</option><option value="false">Not analyzed</option>
+      </select>
+    </label>
+    <label *ngIf="mode === 'findings'" class="text-sm text-gray-700">Debt category
+      <select [value]="category()" (change)="changeCategory($event)" class="mt-1 block w-full border rounded px-3 py-2">
+        <option value="">Any category</option>
+        <option *ngFor="let item of categoryOptions" [value]="item">{{ formatCategory(item) | titlecase }}</option>
+      </select>
+    </label>
+    <label *ngIf="mode === 'findings'" class="text-sm text-gray-700">Severity
+      <select [value]="severity()" (change)="changeSeverity($event)" class="mt-1 block w-full border rounded px-3 py-2">
+        <option value="">Any severity</option>
+        <option *ngFor="let item of severityOptions" [value]="item">{{ item === 'NOT_ASSESSED' ? 'Not Assessed' : item + ' / 5' }}</option>
+      </select>
+    </label>
+    <label *ngIf="mode === 'findings'" class="text-sm text-gray-700">AI suggestion
+      <select [value]="suggestion()" (change)="changeSuggestion($event)" class="mt-1 block w-full border rounded px-3 py-2">
+        <option value="ANY">Any</option><option value="GENERATED">Generated</option><option value="NOT_GENERATED">Not Generated</option>
+      </select>
+    </label>
+    <label *ngIf="mode === 'pull-requests' || mode === 'findings'" class="text-sm text-gray-700 lg:col-span-2">Search
+      <input type="search" (input)="onSearch($event)" [placeholder]="mode === 'findings' ? 'Filename, comment or PR title' : 'PR number, title or repository'"
+             class="mt-1 block w-full border rounded px-3 py-2">
+    </label>
+  </div>
+
+  <div *ngIf="loading()" role="status" class="grid gap-3" aria-label="Loading details">
+    <div class="h-24 rounded-xl bg-gray-100 animate-pulse"></div><div class="h-24 rounded-xl bg-gray-100 animate-pulse"></div>
+  </div>
+  <div *ngIf="!loading() && error()" role="alert" class="bg-red-50 border-l-4 border-red-400 p-4 text-red-700">
+    Could not load this view. <button type="button" (click)="loadPage(page())" class="underline">Try again</button>.
+  </div>
+  <div *ngIf="!loading() && !error() && total() === 0" class="bg-white border rounded-xl p-10 text-center text-gray-600">
+    No matching {{ mode === 'findings' ? 'current SATD findings' : mode === 'repositories' ? 'connected repositories' : 'pull requests' }}.
+  </div>
+
+  <div *ngIf="!loading() && !error() && mode === 'repositories'" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <article *ngFor="let repo of repositories()" class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 space-y-3">
+      <h2 class="font-semibold text-lg break-all">{{ repo.fullName }}</h2>
+      <dl class="text-sm text-gray-700 grid grid-cols-2 gap-2">
+        <dt>Pull requests</dt><dd class="text-right">{{ repo.pullRequestCount }}</dd>
+        <dt>Analyzed PRs</dt><dd class="text-right">{{ repo.analyzedPullRequestCount }}</dd>
+        <dt>Current SATD</dt><dd class="text-right">{{ repo.currentSatdFindingCount }}</dd>
+      </dl>
+      <p class="text-xs text-gray-500">Last completed: {{ repo.lastCompletedAnalysisAt ? (repo.lastCompletedAnalysisAt | date:'medium') : 'Not analyzed' }}</p>
+      <div class="flex gap-4 border-t pt-3 text-sm">
+        <a [href]="repo.url" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">View Repository</a>
+        <a [routerLink]="['/dashboard/projects', repo.id, 'pulls']" class="text-blue-600 hover:underline">View PRs</a>
+      </div>
+    </article>
+  </div>
+
+  <div *ngIf="!loading() && !error() && mode === 'pull-requests'" class="space-y-3">
+    <article *ngFor="let pr of pullRequests()" class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 flex flex-wrap justify-between gap-4">
+      <div class="min-w-0">
+        <p class="text-xs text-gray-500">{{ pr.repository }} · #{{ pr.number }} · {{ pr.state }}</p>
+        <h2 class="font-semibold text-gray-900 break-words">{{ pr.title }}</h2>
+        <p class="text-sm text-gray-600 mt-1">{{ pr.analyzed ? 'Analyzed' : 'Not analyzed' }} · Current SATD: {{ pr.currentSatdFindingCount }} · Last completed: {{ pr.latestCompletedAt ? (pr.latestCompletedAt | date:'short') : '—' }}</p>
+      </div>
+      <a [routerLink]="['/dashboard/pulls', pr.id]" class="self-center text-blue-600 hover:underline">View PR</a>
+    </article>
+  </div>
+
+  <div *ngIf="!loading() && !error() && mode === 'analyzed-prs'" class="space-y-3">
+    <article *ngFor="let item of analyzed()" class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 flex flex-wrap justify-between gap-4">
+      <div>
+        <p class="text-xs text-gray-500">{{ item.repository }} · #{{ item.number }} · Run {{ item.runId }}</p>
+        <h2 class="font-semibold">{{ item.title }}</h2>
+        <p class="text-sm text-gray-600">{{ item.analyzedCandidateCount ?? 0 }} candidates · {{ item.satdFindingCount }} SATD findings · {{ item.completedAt | date:'short' }}</p>
+        <p *ngIf="item.analyzedHeadSha" class="text-xs font-mono text-gray-500">Head {{ item.analyzedHeadSha | slice:0:8 }}</p>
+      </div>
+      <a [routerLink]="['/dashboard/pulls', item.pullRequestId]" [queryParams]="{tab:'history',runId:item.runId}" class="self-center text-blue-600 hover:underline">View Analysis History</a>
+    </article>
+  </div>
+
+  <div *ngIf="!loading() && !error() && mode === 'findings'" class="space-y-4">
+    <article *ngFor="let finding of findings()" class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 min-w-0">
+      <div class="flex flex-wrap items-center gap-2 text-sm">
+        <span class="font-semibold">{{ finding.repository }} #{{ finding.pullRequestNumber }}</span>
+        <span class="text-gray-500">{{ finding.pullRequestTitle }}</span>
+        <span *ngIf="finding.aiSuggestionAvailable" class="bg-green-100 text-green-700 rounded-full px-2 py-0.5">AI Suggestion Available</span>
+      </div>
+      <p class="font-mono text-sm break-all mt-2">{{ finding.filename }}:{{ finding.lineNumber ?? '—' }}</p>
+      <pre class="whitespace-pre-wrap break-words bg-gray-50 rounded p-3 mt-2 text-sm">{{ finding.commentText }}</pre>
+      <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-sm text-gray-700 mt-3">
+        <p>SATD probability: {{ finding.satdProbability | percent:'1.1-1' }}</p>
+        <p>Confidence: {{ finding.confidence | percent:'1.1-1' }}</p>
+        <p>Category: {{ formatCategory(finding.debtCategory) | titlecase }}</p>
+        <p>Severity: {{ finding.severityScore === null ? 'Not Assessed' : finding.severityScore + ' / 5' }}</p>
+      </div>
+      <p *ngIf="finding.categoryReason" class="text-xs text-gray-600 mt-2">Category reason: {{ finding.categoryReason }}</p>
+      <p *ngIf="finding.severityReason" class="text-xs text-gray-600">Severity reason: {{ finding.severityReason }}</p>
+      <p class="text-xs text-gray-500 mt-2">Latest completed analysis: {{ finding.completedAt | date:'medium' }}</p>
+      <div class="flex flex-wrap gap-4 mt-3 pt-3 border-t text-sm">
+        <a [routerLink]="['/dashboard/pulls', finding.pullRequestId]" class="text-blue-600 hover:underline">View PR</a>
+        <a [routerLink]="['/dashboard/pulls', finding.pullRequestId]" [queryParams]="{tab:'history',runId:finding.runId}" class="text-blue-600 hover:underline">View Analysis History</a>
+        <a [routerLink]="['/dashboard/findings', finding.id]" class="text-blue-600 hover:underline">View Finding</a>
+      </div>
+    </article>
+  </div>
+
+  <nav *ngIf="!loading() && !error() && total() > 0" aria-label="Results pages" class="flex items-center justify-between bg-white rounded-xl border p-4 text-sm">
+    <button type="button" (click)="loadPage(page()-1)" [disabled]="page() === 1" class="text-blue-600 disabled:text-gray-400">Previous</button>
+    <span>Page {{ page() }} · {{ total() }} total</span>
+    <button type="button" (click)="loadPage(page()+1)" [disabled]="!hasNext()" class="text-blue-600 disabled:text-gray-400">Next</button>
+  </nav>
+</div>

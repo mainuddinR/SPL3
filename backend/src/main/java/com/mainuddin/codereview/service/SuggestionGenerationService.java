@@ -6,11 +6,7 @@ import com.mainuddin.codereview.service.SuggestionSnapshotService.Snapshot;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
-import java.util.Locale;
-import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 @Service
 public class SuggestionGenerationService {
@@ -23,29 +19,24 @@ public class SuggestionGenerationService {
     private final SuggestionProviderClient provider;
     private final boolean enabled;
     private final String apiKey;
-    private final Set<String> allowed;
 
     public SuggestionGenerationService(SuggestionSnapshotService snapshots, SuggestionPersistenceService persistence,
                                        SuggestionProviderClient provider,
                                        @Value("${app.llm.enabled:false}") boolean enabled,
-                                       @Value("${app.llm.api-key:}") String apiKey,
-                                       @Value("${app.llm.allowed-repositories:}") String allowedRepositories) {
+                                       @Value("${app.llm.api-key:}") String apiKey) {
         this.snapshots = snapshots; this.persistence = persistence; this.provider = provider;
         this.enabled = enabled; this.apiKey = apiKey;
-        this.allowed = Arrays.stream(allowedRepositories.split(","))
-                .map(s -> s.trim().toLowerCase(Locale.ROOT)).filter(s -> !s.isEmpty()).collect(Collectors.toUnmodifiableSet());
     }
 
     public SuggestionResponseDTO generate(Long prId, Long runId, Long findingId) {
         Snapshot saved = snapshots.load(prId, runId, findingId);
         if (saved.suggestion() != null) return available(saved.findingId(), saved.suggestion(), saved.generatedAt(),
                 saved.providerModel(), saved.promptVersion());
-        if (!enabled || apiKey.isBlank()) return SuggestionResponseDTO.unavailable(findingId, "LLM integration disabled.");
-        if (!allowed.contains(saved.repository().toLowerCase(Locale.ROOT)))
-            return SuggestionResponseDTO.unavailable(findingId, "Suggestion unavailable for this repository.");
+        if (!enabled) return SuggestionResponseDTO.unavailable(findingId, "DISABLED", "AI suggestions are disabled by the server.");
+        if (apiKey.isBlank()) return SuggestionResponseDTO.unavailable(findingId, "NOT_CONFIGURED", "AI provider is not configured.");
         if (sensitive(saved.filename()) || sensitive(saved.comment()) || sensitive(saved.preceding())
                 || sensitive(saved.succeeding()) || sensitive(saved.categoryReason()) || sensitive(saved.severityReason()))
-            return SuggestionResponseDTO.unavailable(findingId, "Suggestion unavailable because sensitive content may be present.");
+            return SuggestionResponseDTO.unavailable(findingId, "CONTENT_BLOCKED", "Suggestion unavailable because sensitive content may be present.");
 
         try {
             String input = input(saved);
@@ -54,15 +45,31 @@ public class SuggestionGenerationService {
                     provider.modelIdentifier(), PROMPT_VERSION);
             return available(findingId, persisted.getAiSuggestion(), persisted.getAiSuggestionGeneratedAt(),
                     persisted.getAiSuggestionProviderModel(), persisted.getAiSuggestionPromptVersion());
+        } catch (OpenAiSuggestionClient.SuggestionProviderException ex) {
+            return SuggestionResponseDTO.unavailable(findingId, ex.reasonCode(), safeReason(ex.reasonCode()), ex.retryAfterSeconds());
         } catch (RuntimeException ex) {
-            // Provider and persistence details must not reach the global exception handler or browser.
-            return SuggestionResponseDTO.unavailable(findingId, "Suggestion service temporarily unavailable. Retry.");
+            // Persistence and unexpected details must not reach the browser.
+            return SuggestionResponseDTO.unavailable(findingId, "UNAVAILABLE", "Suggestion service temporarily unavailable. Retry.");
         }
+    }
+
+    private static String safeReason(String code) {
+        return switch (code) {
+            case "AUTHENTICATION_FAILED" -> "AI provider authentication failed. Check the server configuration.";
+            case "RATE_LIMITED" -> "AI provider request limit reached. Try again later.";
+            case "MODEL_UNAVAILABLE" -> "The configured AI model is unavailable.";
+            case "TIMEOUT" -> "The AI provider took too long to respond. Retry.";
+            case "PROVIDER_UNAVAILABLE" -> "AI provider is temporarily unavailable.";
+            case "CONTENT_BLOCKED" -> "AI provider declined this request.";
+            case "INVALID_PROVIDER_RESPONSE" -> "AI provider returned an invalid response. Retry later.";
+            case "INVALID_REQUEST" -> "AI provider rejected the request. Check the server configuration.";
+            default -> "Suggestion service temporarily unavailable. Retry.";
+        };
     }
 
     private static SuggestionResponseDTO available(Long id, String text, java.time.LocalDateTime at,
                                                     String model, String version) {
-        return new SuggestionResponseDTO(id, "AVAILABLE", text, at, model, version, null);
+        return new SuggestionResponseDTO(id, "AVAILABLE", text, at, model, version, null, null, null);
     }
 
     private static boolean sensitive(String value) { return value != null && SENSITIVE.matcher(value).find(); }

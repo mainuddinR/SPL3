@@ -24,7 +24,7 @@
         <div class="flex flex-wrap gap-2">
           <button (click)="analyzePullRequest()" [disabled]="analyzing() || syncing()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow flex items-center gap-2 disabled:opacity-50">
             <span *ngIf="analyzing()" class="animate-spin material-icons" aria-hidden="true">refresh</span>
-            {{ analyzing() ? 'Analyzing PR...' : 'Analyze PR' }}
+            {{ analyzing() ? 'Analyzing PR... ' + (analysisProgress()?.processedCandidates ?? 0) + '/' + (analysisProgress()?.totalCandidates ?? 0) : analysisProgress()?.status === 'FAILED' ? 'Retry Analysis' : analysisProgress()?.status === 'COMPLETED' ? 'Analyze Again' : 'Analyze PR' }}
           </button>
           <button (click)="syncDetails()" [disabled]="syncing() || analyzing()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow flex items-center gap-2 disabled:opacity-50">
             <span *ngIf="syncing()" class="animate-spin material-icons">refresh</span>
@@ -42,11 +42,19 @@
         <p *ngIf="!analyzing() && !analysisError() && analysisResults() === null" class="text-gray-500">
           Analysis has not been run. Use Sync Details to fetch the latest diff, then select Analyze PR.
         </p>
-        <p *ngIf="analyzing()" class="text-blue-600">Analyzing source-code comments. This may take a while.</p>
-        <p *ngIf="analysisResults()?.length === 0" class="text-gray-500">
+        <div *ngIf="analyzing() && analysisProgress() as progress" class="text-blue-700 space-y-2" role="status">
+          <p>Analyzing PR... {{ progress.processedCandidates }} / {{ progress.totalCandidates }} comments analyzed</p>
+          <p>{{ progress.satdCount }} SATD found · {{ progress.nonSatdCount }} NON-SATD · {{ progress.progressPercent }}%</p>
+          <div class="h-3 rounded bg-gray-200 overflow-hidden" role="progressbar" [attr.aria-valuenow]="progress.progressPercent" aria-valuemin="0" aria-valuemax="100">
+            <div class="h-full bg-blue-600 transition-all" [style.width.%]="progress.progressPercent"></div>
+          </div>
+          <p class="text-sm">Analysis continues in the background. You can navigate away and return to this PR.</p>
+        </div>
+        <p *ngIf="!analyzing() && analysisProgress()?.status === 'COMPLETED'" class="text-gray-600 mb-3">Analysis complete: {{ analysisProgress()?.processedCandidates }} comments analyzed, {{ analysisProgress()?.satdCount }} SATD findings, {{ analysisProgress()?.nonSatdCount }} NON-SATD.</p>
+        <p *ngIf="!analyzing() && analysisProgress()?.status === 'COMPLETED' && analysisResults()?.length === 0" class="text-gray-500">
           Analysis completed. No analyzable source-code comments/findings were found for the stored PR diff. If details have not been synced, use Sync Details and analyze again.
         </p>
-        <p *ngIf="analysisResults()?.length" class="text-gray-500 mb-4">Analysis completed. Each result shows its SATD or NON-SATD classification.</p>
+        <p *ngIf="analysisResults()?.length" class="text-gray-500 mb-4">Processed results appear below as they finish. Live NON-SATD cards are temporary; completed SATD findings are saved in Analysis History.</p>
       </div>
       <div *ngIf="analysisError()" role="alert" class="bg-red-100 text-red-700 p-4 rounded mb-4">{{ analysisError() }}</div>
       <div class="space-y-4">
@@ -75,6 +83,9 @@
                   type="button" (click)="viewInDiff(finding)"
                   class="text-sm font-medium text-blue-600 hover:underline mb-3">View in diff</button>
           <p *ngIf="finding.label === 'SATD' && !findLocation(finding)" class="text-sm text-gray-500 mb-3">Diff location unavailable.</p>
+          <button *ngIf="finding.label === 'SATD' && analysisProgress()?.status === 'COMPLETED'" type="button" (click)="openAnalysisHistory(finding)"
+                  class="text-sm text-blue-600 hover:underline mb-3 block">Open Analysis History for this finding</button>
+          <p *ngIf="finding.label === 'SATD' && analyzing()" class="text-sm text-gray-500 mb-3">AI suggestions become available from saved findings after analysis completes.</p>
           <h3 class="text-sm font-semibold mb-2">Extracted comment</h3>
           <pre class="bg-gray-900 text-gray-300 rounded p-4 overflow-x-auto whitespace-pre font-mono text-sm"><code>{{ finding.commentText }}</code></pre>
           <details class="mt-3">
@@ -189,7 +200,7 @@
       </div>
     </div>
 
-    <section *ngIf="selectedTab() === 'history'" class="bg-white rounded shadow p-6" aria-labelledby="history-heading" [attr.aria-busy]="historyLoading()">
+    <section *ngIf="selectedTab() === 'history'" id="analysis-history-section" class="bg-white rounded shadow p-6" aria-labelledby="history-heading" [attr.aria-busy]="historyLoading()">
       <div class="flex justify-between items-center mb-4">
         <h2 id="history-heading" class="text-xl font-bold">Analysis History</h2>
         <button type="button" (click)="loadHistory(prId()!)" [disabled]="historyLoading()"
@@ -206,7 +217,7 @@
           </button>
           <p class="text-sm text-gray-600 mt-2">Analyzed candidates: {{ run.analyzedCandidateCount ?? '—' }}
             <span class="ml-3">SATD findings: {{ run.satdFindingCount }}</span></p>
-          <p *ngIf="run.status === 'RUNNING'" class="text-sm text-gray-500 mt-1">This run has not reached a terminal state.</p>
+          <p *ngIf="run.status === 'RUNNING'" class="text-sm text-gray-500 mt-1">This run has not reached a terminal state. <span *ngIf="analysisProgress()?.runId === run.id">{{ analysisProgress()?.processedCandidates }} / {{ analysisProgress()?.totalCandidates }} candidates processed.</span></p>
           <p *ngIf="run.status === 'FAILED'" class="text-sm text-red-700 mt-1">This analysis run failed.</p>
           <div *ngIf="selectedHistory()?.run?.id === run.id" class="border-t mt-4 pt-4">
             <h3 class="font-semibold mb-2">Saved historical result</h3>
@@ -237,7 +248,7 @@
             <p *ngIf="run.status === 'COMPLETED' && run.analyzedCandidateCount === 0" class="text-gray-500">No analyzable candidates were found in this run.</p>
             <p *ngIf="run.status === 'COMPLETED' && run.analyzedCandidateCount !== 0 && selectedHistory()?.findings?.length === 0" class="text-gray-500">No SATD findings were detected in this analysis run.</p>
             <div *ngIf="run.status === 'COMPLETED'" class="space-y-4">
-              <article *ngFor="let finding of selectedHistory()?.findings" class="border border-gray-200 rounded p-4 min-w-0">
+              <article *ngFor="let finding of selectedHistory()?.findings" [id]="'saved-finding-' + finding.id" class="border border-gray-200 rounded p-4 min-w-0" [class.ring-2]="highlightedFinding(finding.id)" [class.ring-blue-400]="highlightedFinding(finding.id)">
                 <div class="flex flex-wrap items-center gap-2 mb-3">
                   <span class="px-2 py-1 rounded text-sm font-semibold bg-red-100 text-red-700">{{ finding.label }}</span>
                   <span class="font-mono text-sm break-all">{{ finding.filename }}</span>
@@ -255,6 +266,37 @@
                 </div>
                 <h4 class="text-sm font-semibold mb-2">Extracted comment</h4>
                 <pre class="bg-gray-900 text-gray-300 rounded p-4 overflow-x-auto whitespace-pre font-mono text-sm"><code>{{ finding.commentText }}</code></pre>
+                <section class="mt-4 border border-blue-100 bg-blue-50 rounded-lg p-4" [attr.aria-busy]="suggestionLoading().has(finding.id)" aria-label="AI Remediation Assistant">
+                  <h4 class="font-semibold text-base mb-2">AI Remediation Assistant</h4>
+                  <div *ngIf="finding.aiSuggestion; else generateSavedSuggestion">
+                    <p class="text-xs text-gray-600 mb-3">AI-assisted remediation guidance</p>
+                    <div class="grid gap-3 md:grid-cols-2">
+                      <div *ngFor="let section of suggestionSections(finding.aiSuggestion)" class="bg-white rounded border p-3 min-w-0">
+                        <h5 class="font-semibold text-sm mb-1">{{ section.title }}</h5>
+                        <p class="text-sm text-gray-800 whitespace-pre-wrap break-words">{{ section.text }}</p>
+                      </div>
+                    </div>
+                    <details class="mt-3 text-xs text-gray-700"><summary class="cursor-pointer text-blue-600">Details</summary>
+                      <dl class="mt-2 space-y-1">
+                        <div><dt class="inline font-semibold">Model: </dt><dd class="inline">{{ finding.aiSuggestionProviderModel || 'Unavailable' }}</dd></div>
+                        <div><dt class="inline font-semibold">Generated: </dt><dd class="inline">{{ finding.aiSuggestionGeneratedAt ? (finding.aiSuggestionGeneratedAt | date:'medium') : 'Unavailable' }}</dd></div>
+                        <div><dt class="inline font-semibold">Prompt version: </dt><dd class="inline">{{ finding.aiSuggestionPromptVersion || 'Unavailable' }}</dd></div>
+                        <div *ngIf="suggestionReviewNote(finding.aiSuggestion)"><dt class="inline font-semibold">Review note: </dt><dd class="inline whitespace-pre-wrap">{{ suggestionReviewNote(finding.aiSuggestion) }}</dd></div>
+                      </dl>
+                    </details>
+                  </div>
+                  <ng-template #generateSavedSuggestion>
+                    <p class="text-sm text-gray-700 mb-2">Generating a suggestion sends a limited saved code excerpt and finding context to the configured AI provider. Generation occurs only when you click the button.</p>
+                    <p *ngIf="capabilityLoading()" class="text-sm text-gray-600">Checking AI availability...</p>
+                    <p *ngIf="capabilityError()" role="status" class="text-sm text-gray-600">AI availability could not be checked. Try refreshing this page.</p>
+                    <p *ngIf="suggestionCapability() && !suggestionCapability()?.llmEnabled" role="status" class="text-sm text-gray-600">AI suggestions are currently disabled by the server.</p>
+                    <p *ngIf="suggestionCapability()?.llmEnabled && !suggestionCapability()?.apiKeyConfigured" role="status" class="text-sm text-gray-600">AI provider is not configured.</p>
+                    <button type="button" (click)="generateSuggestion(finding)"
+                            [disabled]="suggestionLoading().has(finding.id) || coolingDown(finding.id) || !suggestionCapability()?.llmEnabled || !suggestionCapability()?.apiKeyConfigured"
+                            class="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">{{ suggestionLoading().has(finding.id) ? 'Generating suggestion...' : coolingDown(finding.id) ? 'Retry after cooldown' : suggestionErrors()[finding.id] ? 'Retry' : 'Generate AI Suggestion' }}</button>
+                    <p *ngIf="suggestionErrors()[finding.id]" role="alert" class="text-sm text-red-700 mt-2">{{ suggestionErrors()[finding.id] }}</p>
+                  </ng-template>
+                </section>
                 <details class="mt-3">
                   <summary class="cursor-pointer text-blue-600">View saved surrounding code</summary>
                   <h4 class="text-sm font-semibold mt-3 mb-2">Preceding code</h4>
@@ -264,20 +306,6 @@
                   <pre *ngIf="finding.succeedingCode; else noSavedSucceedingCode" class="bg-gray-900 text-gray-300 rounded p-4 overflow-x-auto whitespace-pre font-mono text-sm"><code>{{ finding.succeedingCode }}</code></pre>
                   <ng-template #noSavedSucceedingCode><p class="text-sm text-gray-500">No succeeding code saved.</p></ng-template>
                 </details>
-                <div class="mt-4 border-t border-gray-200 pt-4" [attr.aria-busy]="suggestionLoading().has(finding.id)">
-                  <div *ngIf="finding.aiSuggestion; else generateSavedSuggestion">
-                    <h4 class="font-semibold text-sm mb-2">AI-generated suggestion</h4>
-                    <p class="text-xs text-gray-500 mb-2">Advisory only; review before applying.</p>
-                    <p class="text-sm text-gray-800 whitespace-pre-wrap break-words">{{ finding.aiSuggestion }}</p>
-                    <p *ngIf="finding.aiSuggestionGeneratedAt" class="text-xs text-gray-500 mt-2">Generated {{ finding.aiSuggestionGeneratedAt | date:'medium' }}<span *ngIf="finding.aiSuggestionProviderModel"> · {{ finding.aiSuggestionProviderModel }}</span></p>
-                  </div>
-                  <ng-template #generateSavedSuggestion>
-                    <p class="text-sm text-gray-600 mb-2">Generating a suggestion sends this saved code excerpt to an external AI provider. The advice requires human review.</p>
-                    <button type="button" (click)="generateSuggestion(finding)" [disabled]="suggestionLoading().has(finding.id)"
-                            class="text-sm text-blue-600 hover:underline disabled:opacity-50">{{ suggestionLoading().has(finding.id) ? 'Generating suggestion...' : 'Generate AI Suggestion' }}</button>
-                    <p *ngIf="suggestionErrors()[finding.id]" role="alert" class="text-sm text-red-700 mt-2">{{ suggestionErrors()[finding.id] }}</p>
-                  </ng-template>
-                </div>
               </article>
             </div>
           </div>

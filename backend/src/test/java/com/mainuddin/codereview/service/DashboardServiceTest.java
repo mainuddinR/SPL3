@@ -24,6 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class DashboardServiceTest {
     @Autowired DashboardService dashboard;
+    @Autowired DashboardDrilldownService drilldowns;
     @Autowired UserRepository users;
     @Autowired GithubProjectRepository projects;
     @Autowired PullRequestRepository prs;
@@ -125,6 +126,19 @@ class DashboardServiceTest {
         assertEquals(2, data.repositories().get(1).pullRequestCount());
         assertEquals(1, data.repositories().get(1).analyzedPullRequestCount());
         assertEquals(0, data.repositories().get(1).currentSatdFindingCount());
+        assertEquals(data.stats().repositoryCount(), drilldowns.repositories(owner, 1, 10).total());
+        assertEquals(data.stats().pullRequestCount(), drilldowns.pullRequests(owner, 1, 10, null, null, null, null).total());
+        assertEquals(data.stats().analyzedPullRequestCount(), drilldowns.analyzed(owner, 1, 10, null).total());
+        assertEquals(data.stats().currentSatdFindingCount(),
+                drilldowns.findings(owner, 1, 10, null, null, null, null, null).total());
+        assertEquals(1, drilldowns.findings(owner, 1, 10, null, "UNCLASSIFIED", null, null, null).total());
+        assertEquals(1, drilldowns.findings(owner, 1, 10, null, "NOT_ASSESSED", null, null, null).total());
+        assertEquals(2, drilldowns.findings(owner, 1, 10, null, null, "NOT_ASSESSED", null, null).total());
+        assertEquals(1, drilldowns.findings(owner, 1, 10, null, "DESIGN", null, null, null).total());
+        assertEquals(3, drilldowns.pullRequests(owner, 1, 10, null, null, true, null).total());
+        assertEquals(1, drilldowns.pullRequests(owner, 1, 10, null, null, false, null).total());
+        assertEquals(2, drilldowns.findings(owner, 1, 2, null, null, null, null, null).items().size());
+        assertEquals(7, drilldowns.findings(owner, 2, 2, null, null, null, null, null).total());
         mvc.perform(get("/api/dashboard/summary").header("Authorization", "Bearer " + jwt.generateJwtToken(owner, "owner")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.stats.currentSatdFindingCount").value(7))
@@ -160,5 +174,11 @@ class DashboardServiceTest {
         assertEquals(0, data.categoryDistribution().get("DEFECT"));
         assertEquals(0, data.severityDistribution().get("4"));
         assertEquals(1, data.severityDistribution().get("2"));
+        assertEquals(1, drilldowns.repositories(owner, 1, 10).total());
+        assertEquals(1, drilldowns.pullRequests(owner, 1, 10, null, null, null, null).total());
+        assertEquals(1, drilldowns.analyzed(owner, 1, 10, null).total());
+        assertEquals(1, drilldowns.findings(owner, 1, 10, null, null, null, null, null).total());
+        assertEquals("TEST", drilldowns.findings(owner, 1, 10, null, null, null, null, null).items().getFirst().debtCategory());
+        assertEquals(0, drilldowns.findings(owner, 1, 10, null, "DEFECT", null, null, null).total());
     }
 }

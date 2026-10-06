@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,10 +14,11 @@ import java.util.Optional;
 import java.time.LocalDateTime;
 
 @Repository
-public interface SATDFindingRepository extends JpaRepository<SATDFinding, Long> {
+public interface SATDFindingRepository extends JpaRepository<SATDFinding, Long>, JpaSpecificationExecutor<SATDFinding> {
     List<SATDFinding> findByAnalysisRunId(Long analysisRunId);
     long countByAnalysisRunId(Long analysisRunId);
     Optional<SATDFinding> findByIdAndAnalysisRunId(Long id, Long analysisRunId);
+    Optional<SATDFinding> findByIdAndAnalysisRunPullRequestGithubProjectUserGithubId(Long id, String githubId);
 
     @Modifying(clearAutomatically = true)
     @Query("""

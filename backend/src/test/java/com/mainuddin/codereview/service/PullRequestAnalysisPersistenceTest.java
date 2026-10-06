@@ -42,6 +42,9 @@ class PullRequestAnalysisPersistenceTest {
     @SpyBean GithubSourceRetrievalService sourceRetrieval;
     @Autowired MockMvc mvc;
     @Autowired AnalysisHistoryService historyService;
+    @Autowired ProgressiveAnalysisService progressive;
+    @Autowired AnalysisRunPersistenceService runPersistence;
+    @Autowired DashboardFindingDetailService findingDetails;
 
     private PullRequest pr;
     private PullRequestFile file;
@@ -79,6 +82,83 @@ class PullRequestAnalysisPersistenceTest {
     private void predict(String label) {
         when(model.analyzeCandidate(any())).thenReturn(CodeBertResponseDTO.builder()
                 .label(label).satdProbability(0.9).nonSatdProbability(0.1).confidence(0.9).build());
+    }
+
+    private com.mainuddin.codereview.dto.AnalysisProgressDTO waitFor(Long runId, int processed, AnalysisRunStatus status)
+            throws InterruptedException {
+        for (int attempt = 0; attempt < 100; attempt++) {
+            var value = progressive.progress(pr.getId(), runId, 0);
+            if (value.processedCandidates() >= processed && (status == null || value.status() == status)) return value;
+            Thread.sleep(30);
+        }
+        fail("Analysis progress did not reach expected state");
+        return null;
+    }
+
+    @Test
+    void progressiveRunReturnsImmediatelyDeduplicatesAndUsesIncrementalCursor() throws Exception {
+        file.setPatch("@@ -1,3 +1,6 @@\n class Main {\n+ // TODO first\n+ int y;\n+ // TODO second\n int x;\n");
+        files.saveAndFlush(file);
+        var secondStarted = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        when(model.analyzeCandidate(any())).thenAnswer(invocation -> {
+            int call = calls.incrementAndGet();
+            if (call == 2) { secondStarted.countDown(); release.await(3, java.util.concurrent.TimeUnit.SECONDS); }
+            return CodeBertResponseDTO.builder().label(call == 1 ? "NON-SATD" : "SATD")
+                    .satdProbability(call == 1 ? 0.1 : 0.9).nonSatdProbability(call == 1 ? 0.9 : 0.1)
+                    .confidence(0.9).build();
+        });
+        var started = progressive.start(pr.getId());
+        assertEquals(AnalysisRunStatus.RUNNING, started.status());
+        assertEquals(started.runId(), progressive.start(pr.getId()).runId());
+        assertTrue(secondStarted.await(3, java.util.concurrent.TimeUnit.SECONDS));
+        var partial = waitFor(started.runId(), 1, AnalysisRunStatus.RUNNING);
+        assertEquals(2, partial.totalCandidates());
+        assertEquals(1, partial.nonSatdCount());
+        assertEquals(1, partial.nextCursor());
+        assertEquals(1, partial.results().size());
+        assertEquals(AnalysisRunStatus.RUNNING, runs.findById(started.runId()).orElseThrow().getStatus());
+        release.countDown();
+        var completed = waitFor(started.runId(), 2, AnalysisRunStatus.COMPLETED);
+        assertEquals(1, completed.satdCount());
+        assertEquals(100, completed.progressPercent());
+        var tail = progressive.progress(pr.getId(), started.runId(), 1);
+        assertEquals(1, tail.results().size());
+        assertEquals(2, tail.nextCursor());
+        assertEquals(1, findings.countByAnalysisRunId(started.runId()));
+        assertEquals(1, runs.findByPullRequestId(pr.getId()).size());
+    }
+
+    @Test
+    void progressiveFailureAndInterruptedRunNeverBecomeCompleted() throws Exception {
+        when(model.analyzeCandidate(any())).thenThrow(new RuntimeException("private model detail"));
+        var started = progressive.start(pr.getId());
+        var failed = waitFor(started.runId(), 0, AnalysisRunStatus.FAILED);
+        assertFalse(failed.failureMessage().contains("private"));
+        assertEquals(AnalysisRunStatus.FAILED, runs.findById(started.runId()).orElseThrow().getStatus());
+        var orphan = runPersistence.start(pr);
+        var interruptedRun = runs.findById(orphan).orElseThrow();
+        interruptedRun.setStartedAt(java.time.LocalDateTime.now().minusDays(1));
+        runs.saveAndFlush(interruptedRun);
+        var interrupted = progressive.progress(pr.getId(), orphan, 0);
+        assertEquals(AnalysisRunStatus.FAILED, interrupted.status());
+        assertEquals(AnalysisRunStatus.FAILED, runs.findById(orphan).orElseThrow().getStatus());
+    }
+
+    @Test
+    void progressAndFindingDetailAreOwnerProtected() throws Exception {
+        predict("SATD");
+        analysisService.analyzePullRequest(pr.getId());
+        Long runId = prRuns().getFirst().getId();
+        Long findingId = findings.findByAnalysisRunId(runId).getFirst().getId();
+        assertEquals(findingId, findingDetails.get(findingId).finding().id());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("other-owner", null, List.of()));
+        assertThrows(com.mainuddin.codereview.exception.ResourceNotFoundException.class,
+                () -> progressive.progress(pr.getId(), runId, 0));
+        assertThrows(com.mainuddin.codereview.exception.ResourceNotFoundException.class,
+                () -> findingDetails.get(findingId));
     }
 
     @Test

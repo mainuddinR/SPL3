@@ -6,3 +6,22 @@
 
 html, body { height: 100%; }
 body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+
+/* Browser-local dark appearance. Keep the existing Tailwind component palette readable. */
+html.dark { color-scheme: dark; }
+html.dark body, html.dark .bg-gray-50 { background-color: #0f172a; color: #e2e8f0; }
+html.dark .bg-white, html.dark .bg-gray-100 { background-color: #1e293b; }
+html.dark .bg-blue-50 { background-color: #172554; }
+html.dark .bg-red-50, html.dark .bg-red-100 { background-color: #451a1a; }
+html.dark .bg-green-100 { background-color: #14532d; }
+html.dark .text-gray-900, html.dark .text-gray-800, html.dark .text-gray-700 { color: #f1f5f9; }
+html.dark .text-gray-600, html.dark .text-gray-500, html.dark .text-gray-400 { color: #cbd5e1; }
+html.dark .text-blue-600, html.dark .text-blue-700 { color: #93c5fd; }
+html.dark .text-red-700 { color: #fca5a5; }
+html.dark .text-green-700 { color: #86efac; }
+html.dark .border-gray-100, html.dark .border-gray-200, html.dark .border-gray-300 { border-color: #475569; }
+html.dark input, html.dark select, html.dark textarea { background-color: #0f172a; color: #f1f5f9; border-color: #64748b; }
+html.dark input::placeholder { color: #94a3b8; }
+html.dark .hover\:bg-gray-50:hover, html.dark .hover\:bg-gray-100:hover { background-color: #334155; }
+html.dark a:focus-visible, html.dark button:focus-visible, html.dark input:focus-visible,
+html.dark select:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }

@@ -2,6 +2,7 @@ package com.mainuddin.codereview.repository;
 
 import com.mainuddin.codereview.entity.PullRequest;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
@@ -11,7 +12,7 @@ import org.springframework.data.jpa.repository.Lock;
 import jakarta.persistence.LockModeType;
 
 @Repository
-public interface PullRequestRepository extends JpaRepository<PullRequest, Long> {
+public interface PullRequestRepository extends JpaRepository<PullRequest, Long>, JpaSpecificationExecutor<PullRequest> {
     List<PullRequest> findByGithubProjectId(Long projectId);
     List<PullRequest> findByGithubProjectIdIn(List<Long> projectIds);
     Optional<PullRequest> findByGithubPrId(Long githubPrId);

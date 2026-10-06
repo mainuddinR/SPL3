@@ -13,7 +13,8 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class OpenAiSuggestionClientTest {
-    private final OpenAiSuggestionClient client = new OpenAiSuggestionClient(new ObjectMapper(), "test-key", "test-model", 1);
+    private final OpenAiSuggestionClient client = new OpenAiSuggestionClient(
+            new ObjectMapper(), "test-key", "test-model", "https://api.openai.com/v1", true, 1);
     private final RestTemplate http = new RestTemplate();
 
     private MockRestServiceServer server() {
@@ -38,19 +39,51 @@ class OpenAiSuggestionClientTest {
             var server = server();
             server.expect(requestTo("https://api.openai.com/v1/responses"))
                     .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
-            assertEquals("Suggestion provider unavailable", assertThrows(
-                    OpenAiSuggestionClient.SuggestionProviderException.class, () -> client.generate("excerpt")).getMessage());
+            assertEquals("INVALID_PROVIDER_RESPONSE", assertThrows(
+                    OpenAiSuggestionClient.SuggestionProviderException.class, () -> client.generate("excerpt")).reasonCode());
             server.verify();
         }
         for (var status : new org.springframework.http.HttpStatus[] {
                 org.springframework.http.HttpStatus.UNAUTHORIZED, org.springframework.http.HttpStatus.FORBIDDEN,
-                org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR }) {
+                org.springframework.http.HttpStatus.NOT_FOUND, org.springframework.http.HttpStatus.TOO_MANY_REQUESTS,
+                org.springframework.http.HttpStatus.BAD_REQUEST, org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR }) {
             var server = server();
             server.expect(requestTo("https://api.openai.com/v1/responses"))
                     .andRespond(withStatus(status).body("private provider details"));
             var error = assertThrows(OpenAiSuggestionClient.SuggestionProviderException.class, () -> client.generate("excerpt"));
+            assertEquals(switch (status) {
+                case UNAUTHORIZED, FORBIDDEN -> "AUTHENTICATION_FAILED";
+                case NOT_FOUND -> "MODEL_UNAVAILABLE";
+                case TOO_MANY_REQUESTS -> "RATE_LIMITED";
+                case BAD_REQUEST -> "INVALID_REQUEST";
+                default -> "PROVIDER_UNAVAILABLE";
+            }, error.reasonCode());
             assertFalse(error.getMessage().contains("private"));
             server.verify();
         }
+    }
+
+    @Test void timeoutHasSafeCategory() {
+        var server = server();
+        server.expect(requestTo("https://api.openai.com/v1/responses"))
+                .andRespond(withException(new java.net.SocketTimeoutException("private transport details")));
+        var error = assertThrows(OpenAiSuggestionClient.SuggestionProviderException.class,
+                () -> client.generate("excerpt"));
+        assertEquals("TIMEOUT", error.reasonCode());
+        assertFalse(error.getMessage().contains("private"));
+        server.verify();
+    }
+
+    @Test void rateLimitExposesOnlyBoundedRetrySeconds() {
+        var server = server();
+        server.expect(requestTo("https://api.openai.com/v1/responses"))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS)
+                        .header("Retry-After", "40").body("private provider body"));
+        var error = assertThrows(OpenAiSuggestionClient.SuggestionProviderException.class,
+                () -> client.generate("excerpt"));
+        assertEquals("RATE_LIMITED", error.reasonCode());
+        assertEquals(40, error.retryAfterSeconds());
+        assertFalse(error.getMessage().contains("private"));
+        server.verify();
     }
 }

@@ -21,6 +21,8 @@ import com.mainuddin.codereview.dto.SuggestionResponseDTO;
 import com.mainuddin.codereview.service.SuggestionGenerationService;
 import com.mainuddin.codereview.service.ReviewPublishingService;
 import com.mainuddin.codereview.dto.ReviewPreviewDTO;
+import com.mainuddin.codereview.dto.AnalysisProgressDTO;
+import com.mainuddin.codereview.service.ProgressiveAnalysisService;
 
 @RestController
 @RequestMapping("/api/prs")
@@ -35,6 +37,7 @@ public class PullRequestController {
     private final AnalysisHistoryService analysisHistoryService;
     private final SuggestionGenerationService suggestionGenerationService;
     private final ReviewPublishingService reviewPublishingService;
+    private final ProgressiveAnalysisService progressiveAnalysisService;
 
     public PullRequestController(GithubService githubService, 
                                  PullRequestRepository pullRequestRepository,
@@ -43,7 +46,8 @@ public class PullRequestController {
                                  PullRequestAnalysisService pullRequestAnalysisService,
                                  AnalysisHistoryService analysisHistoryService,
                                  SuggestionGenerationService suggestionGenerationService,
-                                 ReviewPublishingService reviewPublishingService) {
+                                 ReviewPublishingService reviewPublishingService,
+                                 ProgressiveAnalysisService progressiveAnalysisService) {
         this.githubService = githubService;
         this.pullRequestRepository = pullRequestRepository;
         this.pullRequestFileRepository = pullRequestFileRepository;
@@ -52,12 +56,29 @@ public class PullRequestController {
         this.analysisHistoryService = analysisHistoryService;
         this.suggestionGenerationService = suggestionGenerationService;
         this.reviewPublishingService = reviewPublishingService;
+        this.progressiveAnalysisService = progressiveAnalysisService;
     }
 
     @PostMapping("/{prId}/analyze")
     public ResponseEntity<List<SatdAnalysisResponseDTO>> analyzePullRequest(@PathVariable Long prId) {
         List<SatdAnalysisResponseDTO> analysisResults = pullRequestAnalysisService.analyzePullRequest(prId);
         return ResponseEntity.ok(analysisResults);
+    }
+
+    @PostMapping("/{prId}/analysis-runs")
+    public AnalysisProgressDTO startProgressiveAnalysis(@PathVariable Long prId) {
+        return progressiveAnalysisService.start(prId);
+    }
+
+    @GetMapping("/{prId}/analysis-runs/current")
+    public AnalysisProgressDTO currentProgressiveAnalysis(@PathVariable Long prId) {
+        return progressiveAnalysisService.current(prId);
+    }
+
+    @GetMapping("/{prId}/analysis-runs/{runId}/progress")
+    public AnalysisProgressDTO getProgress(@PathVariable Long prId, @PathVariable Long runId,
+            @RequestParam(defaultValue = "0") int after) {
+        return progressiveAnalysisService.progress(prId, runId, after);
     }
 
     @GetMapping("/{prId}/analysis-runs")

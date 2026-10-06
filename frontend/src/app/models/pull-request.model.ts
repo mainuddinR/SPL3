@@ -22,6 +22,20 @@ export interface SatdAnalysisResponse {
     riskEvidenceRuleVersion: string | null;
 }
 
+export interface AnalysisProgress {
+    runId: number;
+    status: AnalysisRunStatus;
+    totalCandidates: number;
+    processedCandidates: number;
+    satdCount: number;
+    nonSatdCount: number;
+    progressPercent: number;
+    nextCursor: number;
+    completedAt: string | null;
+    failureMessage: string | null;
+    results: SatdAnalysisResponse[];
+}
+
 export type DebtCategory = 'DESIGN' | 'DEFECT' | 'TEST' | 'REQUIREMENT' | 'DOCUMENTATION' | 'UNCLASSIFIED' | 'NOT_ASSESSED';
 
 export type AnalysisRunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
@@ -52,7 +66,9 @@ export interface SuggestionResponse {
     generatedAt: string | null;
     providerModel: string | null;
     promptVersion: string | null;
+    reasonCode: string | null;
     reason: string | null;
+    retryAfterSeconds?: number | null;
 }
 
 export interface AnalysisRunDetail {

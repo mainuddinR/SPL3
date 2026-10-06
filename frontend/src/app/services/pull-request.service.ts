@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { PullRequest, PullRequestFile, PullRequestComment, SatdAnalysisResponse, AnalysisRunSummary, AnalysisRunDetail, SuggestionResponse, ReviewPreview } from '../models/pull-request.model';
+import { PullRequest, PullRequestFile, PullRequestComment, SatdAnalysisResponse, AnalysisRunSummary, AnalysisRunDetail, SuggestionResponse, ReviewPreview, AnalysisProgress } from '../models/pull-request.model';
 
 @Injectable({
   providedIn: 'root'
@@ -12,6 +12,19 @@ export class PullRequestService {
 
   analyzePullRequest(prId: number): Observable<SatdAnalysisResponse[]> {
     return this.http.post<SatdAnalysisResponse[]>(`${this.apiUrl}/${prId}/analyze`, null);
+  }
+
+  startProgressiveAnalysis(prId: number): Observable<AnalysisProgress> {
+    return this.http.post<AnalysisProgress>(`${this.apiUrl}/${prId}/analysis-runs`, null);
+  }
+
+  currentProgressiveAnalysis(prId: number): Observable<AnalysisProgress | null> {
+    return this.http.get<AnalysisProgress | null>(`${this.apiUrl}/${prId}/analysis-runs/current`);
+  }
+
+  analysisProgress(prId: number, runId: number, after: number): Observable<AnalysisProgress> {
+    return this.http.get<AnalysisProgress>(`${this.apiUrl}/${prId}/analysis-runs/${runId}/progress`,
+      { params: { after } });
   }
 
   getAnalysisRuns(prId: number): Observable<AnalysisRunSummary[]> {

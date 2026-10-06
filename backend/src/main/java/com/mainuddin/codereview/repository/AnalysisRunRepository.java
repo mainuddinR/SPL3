@@ -17,6 +17,7 @@ public interface AnalysisRunRepository extends JpaRepository<AnalysisRun, Long> 
     List<AnalysisRun> findByPullRequestId(Long pullRequestId);
     List<AnalysisRun> findByPullRequestIdOrderByStartedAtDescIdDesc(Long pullRequestId);
     Optional<AnalysisRun> findByIdAndPullRequestId(Long id, Long pullRequestId);
+    Optional<AnalysisRun> findFirstByPullRequestIdAndStatusOrderByIdDesc(Long pullRequestId, AnalysisRunStatus status);
 
     @Modifying
     @Query("update AnalysisRun run set run.publicationStatus = :publishing where run.id = :id and run.status = :completed and run.publicationStatus = :notPublished")
