@@ -3,7 +3,7 @@ import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PullRequestService } from '../../../services/pull-request.service';
-import { PullRequest, PullRequestFile, PullRequestComment, SatdAnalysisResponse, AnalysisRunSummary, AnalysisRunDetail, SavedSatdFinding } from '../../../models/pull-request.model';
+import { PullRequest, PullRequestFile, PullRequestComment, SatdAnalysisResponse, AnalysisRunSummary, AnalysisRunDetail, SavedSatdFinding, ReviewPreview } from '../../../models/pull-request.model';
 import { DiffRow, findSatdLocation, isSatdRow, parseUnifiedDiff } from './unified-diff';
 
 @Component({
@@ -20,6 +20,7 @@ export class PullRequestDetails implements OnInit, OnDestroy {
   private historySubscription?: Subscription;
   private historyDetailSubscription?: Subscription;
   private suggestionSubscriptions = new Map<number, Subscription>();
+  private reviewSubscription?: Subscription;
 
   analysisResults = signal<SatdAnalysisResponse[] | null>(null);
   analyzing = signal(false);
@@ -32,6 +33,10 @@ export class PullRequestDetails implements OnInit, OnDestroy {
   historyDetailError = signal<string | null>(null);
   suggestionLoading = signal<Set<number>>(new Set());
   suggestionErrors = signal<Record<number, string>>({});
+  reviewPreview = signal<ReviewPreview | null>(null);
+  reviewLoading = signal(false);
+  reviewPublishing = signal(false);
+  reviewError = signal<string | null>(null);
 
   prId = signal<number | null>(null);
   pullRequest = signal<PullRequest | null>(null);
@@ -143,6 +148,7 @@ export class PullRequestDetails implements OnInit, OnDestroy {
   selectHistoryRun(run: AnalysisRunSummary) {
     const id = this.prId();
     if (!id || this.historyDetailLoading()) return;
+    this.resetReview();
     if (this.selectedHistory()?.run.id === run.id) {
       this.selectedHistory.set(null);
       return;
@@ -162,6 +168,42 @@ export class PullRequestDetails implements OnInit, OnDestroy {
         this.historyDetailLoading.set(false);
       }
     });
+  }
+
+  previewGitHubReview() {
+    const prId = this.prId();
+    const run = this.selectedHistory()?.run;
+    if (!prId || !run || run.status !== 'COMPLETED' || this.reviewLoading() || this.reviewPublishing()) return;
+    this.reviewLoading.set(true);
+    this.reviewError.set(null);
+    this.reviewSubscription = this.prService.previewReview(prId, run.id).subscribe({
+      next: preview => { this.reviewPreview.set(preview); this.reviewLoading.set(false); },
+      error: () => { this.reviewError.set('Review preview unavailable. Sign in with GitHub again or try later.'); this.reviewLoading.set(false); }
+    });
+  }
+
+  publishGitHubReview() {
+    const prId = this.prId();
+    const preview = this.reviewPreview();
+    if (!prId || !preview || preview.staleRevision || preview.publicationStatus !== 'NOT_PUBLISHED'
+        || this.reviewLoading() || this.reviewPublishing()) return;
+    this.reviewPublishing.set(true);
+    this.reviewError.set(null);
+    this.reviewSubscription = this.prService.publishReview(prId, preview.runId).subscribe({
+      next: result => { this.reviewPreview.set(result); this.reviewPublishing.set(false); },
+      error: () => {
+        this.reviewError.set('GitHub review was not confirmed. Check the PR on GitHub before trying again, then refresh this preview.');
+        this.reviewPublishing.set(false);
+      }
+    });
+  }
+
+  private resetReview() {
+    this.reviewSubscription?.unsubscribe();
+    this.reviewPreview.set(null);
+    this.reviewLoading.set(false);
+    this.reviewPublishing.set(false);
+    this.reviewError.set(null);
   }
 
   generateSuggestion(finding: SavedSatdFinding) {
@@ -198,6 +240,7 @@ export class PullRequestDetails implements OnInit, OnDestroy {
   }
 
   private resetHistory() {
+    this.resetReview();
     this.suggestionSubscriptions.forEach(subscription => subscription.unsubscribe());
     this.suggestionSubscriptions.clear();
     this.suggestionLoading.set(new Set());
@@ -242,6 +285,7 @@ export class PullRequestDetails implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.reviewSubscription?.unsubscribe();
     this.suggestionSubscriptions.forEach(subscription => subscription.unsubscribe());
     this.analysisSubscription?.unsubscribe();
     this.historySubscription?.unsubscribe();

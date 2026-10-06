@@ -45,8 +45,9 @@ export class RepositoryDetails implements OnInit {
         this.fetchBranches(owner, repoName);
       },
       error: (err) => {
-        console.error('Error fetching repo details:', err);
-        this.error.set('Failed to fetch repository details.');
+        this.error.set(err.status === 401 ? 'Your GitHub session needs to be refreshed. Sign in with GitHub again.'
+          : err.status === 429 ? 'GitHub request limit reached. Please wait a moment and try again.'
+          : err.status === 404 ? 'Repository not found or inaccessible.' : 'Failed to fetch repository details.');
         this.loading.set(false);
       }
     });
@@ -59,7 +60,6 @@ export class RepositoryDetails implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
-        console.error('Error fetching branches:', err);
         // We still show the repo details even if branches fail
         this.loading.set(false);
       }
@@ -77,8 +77,9 @@ export class RepositoryDetails implements OnInit {
         this.router.navigate(['/dashboard']);
       },
       error: (err) => {
-        console.error('Error saving repository:', err);
-        this.error.set(err.error?.message || 'Failed to save repository.');
+        this.error.set(err.status === 401 ? 'Your GitHub session needs to be refreshed. Sign in with GitHub again.'
+          : err.status === 429 ? 'GitHub request limit reached. Please wait a moment and try again.'
+          : 'Failed to save repository.');
         this.saving.set(false);
       }
     });

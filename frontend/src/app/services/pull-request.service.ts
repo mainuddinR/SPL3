@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { PullRequest, PullRequestFile, PullRequestComment, SatdAnalysisResponse, AnalysisRunSummary, AnalysisRunDetail, SuggestionResponse } from '../models/pull-request.model';
+import { PullRequest, PullRequestFile, PullRequestComment, SatdAnalysisResponse, AnalysisRunSummary, AnalysisRunDetail, SuggestionResponse, ReviewPreview } from '../models/pull-request.model';
 
 @Injectable({
   providedIn: 'root'
@@ -20,6 +20,14 @@ export class PullRequestService {
 
   getAnalysisRun(prId: number, runId: number): Observable<AnalysisRunDetail> {
     return this.http.get<AnalysisRunDetail>(`${this.apiUrl}/${prId}/analysis-runs/${runId}`);
+  }
+
+  previewReview(prId: number, runId: number): Observable<ReviewPreview> {
+    return this.http.get<ReviewPreview>(`${this.apiUrl}/${prId}/analysis-runs/${runId}/review-preview`);
+  }
+
+  publishReview(prId: number, runId: number): Observable<ReviewPreview> {
+    return this.http.post<ReviewPreview>(`${this.apiUrl}/${prId}/analysis-runs/${runId}/publish-review`, { confirm: true });
   }
 
   generateSuggestion(prId: number, runId: number, findingId: number): Observable<SuggestionResponse> {

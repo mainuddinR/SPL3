@@ -60,6 +60,25 @@ export interface AnalysisRunDetail {
     findings: SavedSatdFinding[];
 }
 
+export type ReviewPublicationStatus = 'NOT_PUBLISHED' | 'PUBLISHING' | 'PUBLISHED' | 'PUBLISH_FAILED';
+
+export interface ReviewPreview {
+    runId: number;
+    repository: string;
+    pullRequestNumber: number;
+    analyzedCandidateCount: number | null;
+    satdFindingCount: number;
+    inlineCommentCount: number;
+    unmappableCount: number;
+    staleRevision: boolean;
+    publicationStatus: ReviewPublicationStatus;
+    summary: string;
+    inlineComments: { path: string; line: number; body: string }[];
+    githubReviewUrl: string | null;
+    reviewPublishedAt: string | null;
+    publicationFailure: string | null;
+}
+
 export interface PullRequest {
     id: number;
     githubPrId: number;

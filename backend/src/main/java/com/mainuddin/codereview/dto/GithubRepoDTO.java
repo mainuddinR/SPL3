@@ -23,6 +23,12 @@ public class GithubRepoDTO {
     
     @JsonProperty("stargazers_count")
     private Integer stargazersCount;
+
+    @JsonProperty("private")
+    private Boolean privateRepository;
+
+    @JsonProperty("updated_at")
+    private String updatedAt;
     
     private OwnerDTO owner;
 

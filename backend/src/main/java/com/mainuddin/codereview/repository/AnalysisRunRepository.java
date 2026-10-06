@@ -2,6 +2,8 @@ package com.mainuddin.codereview.repository;
 
 import com.mainuddin.codereview.entity.AnalysisRun;
 import com.mainuddin.codereview.entity.AnalysisRunStatus;
+import com.mainuddin.codereview.entity.ReviewPublicationStatus;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,6 +17,12 @@ public interface AnalysisRunRepository extends JpaRepository<AnalysisRun, Long> 
     List<AnalysisRun> findByPullRequestId(Long pullRequestId);
     List<AnalysisRun> findByPullRequestIdOrderByStartedAtDescIdDesc(Long pullRequestId);
     Optional<AnalysisRun> findByIdAndPullRequestId(Long id, Long pullRequestId);
+
+    @Modifying
+    @Query("update AnalysisRun run set run.publicationStatus = :publishing where run.id = :id and run.status = :completed and run.publicationStatus = :notPublished")
+    int claimReview(@Param("id") Long id, @Param("completed") AnalysisRunStatus completed,
+                    @Param("notPublished") ReviewPublicationStatus notPublished,
+                    @Param("publishing") ReviewPublicationStatus publishing);
 
     @Query("""
             select run from AnalysisRun run

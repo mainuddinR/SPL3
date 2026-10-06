@@ -42,4 +42,24 @@ public class AnalysisRun {
 
     @Column(name = "analyzed_base_sha")
     private String analyzedBaseSha;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "publication_status", nullable = false)
+    @Builder.Default
+    private ReviewPublicationStatus publicationStatus = ReviewPublicationStatus.NOT_PUBLISHED;
+
+    @Column(name = "github_review_id")
+    private Long githubReviewId;
+
+    @Column(name = "github_review_url")
+    private String githubReviewUrl;
+
+    @Column(name = "review_published_at")
+    private LocalDateTime reviewPublishedAt;
+
+    @Column(name = "published_head_sha")
+    private String publishedHeadSha;
+
+    @Column(name = "publication_failure")
+    private String publicationFailure;
 }

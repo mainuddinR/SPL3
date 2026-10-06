@@ -15,6 +15,7 @@ public interface PullRequestRepository extends JpaRepository<PullRequest, Long> 
     List<PullRequest> findByGithubProjectId(Long projectId);
     List<PullRequest> findByGithubProjectIdIn(List<Long> projectIds);
     Optional<PullRequest> findByGithubPrId(Long githubPrId);
+    @Query("select pr from PullRequest pr join fetch pr.githubProject project where pr.id = :id and project.user.githubId = :githubId")
     Optional<PullRequest> findByIdAndGithubProjectUserGithubId(Long id, String githubId);
     @Query("select pr from PullRequest pr join fetch pr.githubProject where pr.id = :id")
     Optional<PullRequest> findWithProjectById(@Param("id") Long id);

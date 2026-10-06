@@ -210,6 +210,30 @@
           <p *ngIf="run.status === 'FAILED'" class="text-sm text-red-700 mt-1">This analysis run failed.</p>
           <div *ngIf="selectedHistory()?.run?.id === run.id" class="border-t mt-4 pt-4">
             <h3 class="font-semibold mb-2">Saved historical result</h3>
+            <div *ngIf="run.status === 'COMPLETED'" class="border border-blue-100 bg-blue-50 rounded p-4 mb-4" [attr.aria-busy]="reviewLoading() || reviewPublishing()">
+              <button type="button" (click)="previewGitHubReview()" [disabled]="reviewLoading() || reviewPublishing()"
+                      class="text-sm text-blue-600 hover:underline disabled:opacity-50">{{ reviewLoading() ? 'Loading review preview...' : 'Preview GitHub Review' }}</button>
+              <p *ngIf="reviewError()" role="alert" class="text-sm text-red-700 mt-2">{{ reviewError() }}</p>
+              <div *ngIf="reviewPreview() as preview" class="mt-3 text-sm space-y-2">
+                <p class="font-semibold">{{ preview.repository }} #{{ preview.pullRequestNumber }} · Run {{ preview.runId }}</p>
+                <p>{{ preview.analyzedCandidateCount ?? 0 }} candidates · {{ preview.satdFindingCount }} SATD findings · {{ preview.inlineCommentCount }} inline · {{ preview.unmappableCount }} in summary</p>
+                <p *ngIf="preview.staleRevision" role="alert" class="text-red-700">The PR revision changed. Sync details and analyze again before publishing this run.</p>
+                <p *ngIf="preview.publicationStatus === 'PUBLISHING'" role="status">Publication is in progress or its result is uncertain. Check GitHub before taking further action.</p>
+                <p *ngIf="preview.publicationStatus === 'PUBLISH_FAILED'" role="alert" class="text-red-700">{{ preview.publicationFailure || 'Publication failed. Check GitHub before taking further action.' }}</p>
+                <p *ngIf="preview.publicationStatus === 'PUBLISHED'" class="text-green-700">Published to GitHub<span *ngIf="preview.reviewPublishedAt"> on {{ preview.reviewPublishedAt | date:'medium' }}</span>.</p>
+                <a *ngIf="preview.publicationStatus === 'PUBLISHED' && preview.githubReviewUrl" [href]="preview.githubReviewUrl" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Open GitHub review</a>
+                <details><summary class="cursor-pointer text-blue-600">Review body and inline comment preview</summary>
+                  <pre class="whitespace-pre-wrap break-words bg-white p-3 mt-2 rounded">{{ preview.summary }}</pre>
+                  <div *ngFor="let comment of preview.inlineComments" class="bg-white p-3 mt-2 rounded">
+                    <p class="font-mono break-all">{{ comment.path }}:{{ comment.line }}</p>
+                    <pre class="whitespace-pre-wrap break-words">{{ comment.body }}</pre>
+                  </div>
+                </details>
+                <button *ngIf="preview.publicationStatus === 'NOT_PUBLISHED' && !preview.staleRevision" type="button"
+                        (click)="publishGitHubReview()" [disabled]="reviewPublishing()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:opacity-50">{{ reviewPublishing() ? 'Publishing...' : 'Confirm and Publish Review to GitHub' }}</button>
+              </div>
+            </div>
             <p *ngIf="run.status === 'COMPLETED' && run.analyzedCandidateCount === 0" class="text-gray-500">No analyzable candidates were found in this run.</p>
             <p *ngIf="run.status === 'COMPLETED' && run.analyzedCandidateCount !== 0 && selectedHistory()?.findings?.length === 0" class="text-gray-500">No SATD findings were detected in this analysis run.</p>
             <div *ngIf="run.status === 'COMPLETED'" class="space-y-4">

@@ -2,12 +2,10 @@ package com.mainuddin.codereview.service;
 
 import com.mainuddin.codereview.dto.GithubBranchDTO;
 import com.mainuddin.codereview.dto.GithubRepoDTO;
-import com.mainuddin.codereview.dto.GithubSearchResponseDTO;
 import com.mainuddin.codereview.entity.GithubProject;
 import com.mainuddin.codereview.entity.User;
 import com.mainuddin.codereview.repository.GithubProjectRepository;
 import com.mainuddin.codereview.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -36,9 +34,6 @@ public class GithubService {
     private static final int FILES_PER_PAGE = 100;
     private static final int MAX_FILE_PAGES = 30; // GitHub exposes at most 3,000 PR files.
 
-    @Value("${spring.security.oauth2.client.registration.github.client-id}")
-    private String githubClientId;
-
     public GithubService(RestTemplate restTemplate, GithubProjectRepository githubProjectRepository, UserRepository userRepository,
                          com.mainuddin.codereview.repository.PullRequestRepository pullRequestRepository,
                          PullRequestFileSnapshotService fileSnapshotService,
@@ -57,16 +52,6 @@ public class GithubService {
         // For production, we would inject the user's OAuth2 access token here.
         // headers.setBearerAuth(userAccessToken);
         return headers;
-    }
-
-    public GithubSearchResponseDTO searchRepositories(String query, int page) {
-        String url = String.format("https://api.github.com/search/repositories?q=%s&page=%d&per_page=10", query, page);
-        HttpEntity<String> entity = new HttpEntity<>(createHeaders());
-        
-        ResponseEntity<GithubSearchResponseDTO> response = restTemplate.exchange(
-                url, HttpMethod.GET, entity, GithubSearchResponseDTO.class);
-                
-        return response.getBody();
     }
 
     public GithubRepoDTO getRepositoryDetails(String owner, String repo) {
@@ -93,9 +78,8 @@ public class GithubService {
         User user = userRepository.findByGithubId(githubId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (githubProjectRepository.existsByGithubRepoIdAndUserId(repoDTO.getId(), user.getId())) {
-            throw new RuntimeException("Repository already saved for this user");
-        }
+        Optional<GithubProject> existing = githubProjectRepository.findByGithubRepoIdAndUserId(repoDTO.getId(), user.getId());
+        if (existing.isPresent()) return existing.get();
 
         GithubProject project = GithubProject.builder()
                 .githubRepoId(repoDTO.getId())

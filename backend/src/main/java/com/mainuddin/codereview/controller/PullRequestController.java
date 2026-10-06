@@ -19,6 +19,8 @@ import com.mainuddin.codereview.dto.AnalysisRunSummaryDTO;
 import com.mainuddin.codereview.dto.AnalysisRunDetailDTO;
 import com.mainuddin.codereview.dto.SuggestionResponseDTO;
 import com.mainuddin.codereview.service.SuggestionGenerationService;
+import com.mainuddin.codereview.service.ReviewPublishingService;
+import com.mainuddin.codereview.dto.ReviewPreviewDTO;
 
 @RestController
 @RequestMapping("/api/prs")
@@ -32,6 +34,7 @@ public class PullRequestController {
     private final PullRequestAnalysisService pullRequestAnalysisService;
     private final AnalysisHistoryService analysisHistoryService;
     private final SuggestionGenerationService suggestionGenerationService;
+    private final ReviewPublishingService reviewPublishingService;
 
     public PullRequestController(GithubService githubService, 
                                  PullRequestRepository pullRequestRepository,
@@ -39,7 +42,8 @@ public class PullRequestController {
                                  PullRequestCommentRepository pullRequestCommentRepository,
                                  PullRequestAnalysisService pullRequestAnalysisService,
                                  AnalysisHistoryService analysisHistoryService,
-                                 SuggestionGenerationService suggestionGenerationService) {
+                                 SuggestionGenerationService suggestionGenerationService,
+                                 ReviewPublishingService reviewPublishingService) {
         this.githubService = githubService;
         this.pullRequestRepository = pullRequestRepository;
         this.pullRequestFileRepository = pullRequestFileRepository;
@@ -47,6 +51,7 @@ public class PullRequestController {
         this.pullRequestAnalysisService = pullRequestAnalysisService;
         this.analysisHistoryService = analysisHistoryService;
         this.suggestionGenerationService = suggestionGenerationService;
+        this.reviewPublishingService = reviewPublishingService;
     }
 
     @PostMapping("/{prId}/analyze")
@@ -64,6 +69,19 @@ public class PullRequestController {
     public ResponseEntity<AnalysisRunDetailDTO> getAnalysisRun(@PathVariable Long prId, @PathVariable Long runId) {
         return ResponseEntity.ok(analysisHistoryService.detail(prId, runId));
     }
+
+    @GetMapping("/{prId}/analysis-runs/{runId}/review-preview")
+    public ResponseEntity<ReviewPreviewDTO> previewReview(@PathVariable Long prId, @PathVariable Long runId) {
+        return ResponseEntity.ok(reviewPublishingService.preview(prId, runId));
+    }
+
+    @PostMapping("/{prId}/analysis-runs/{runId}/publish-review")
+    public ResponseEntity<ReviewPreviewDTO> publishReview(@PathVariable Long prId, @PathVariable Long runId,
+            @RequestBody PublishConfirmation confirmation) {
+        return ResponseEntity.ok(reviewPublishingService.publish(prId, runId, confirmation.confirm()));
+    }
+
+    public record PublishConfirmation(boolean confirm) {}
 
     @PostMapping("/{prId}/analysis-runs/{runId}/findings/{findingId}/suggestion")
     public ResponseEntity<SuggestionResponseDTO> generateSuggestion(@PathVariable Long prId,

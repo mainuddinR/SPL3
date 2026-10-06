@@ -5,10 +5,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface GithubProjectRepository extends JpaRepository<GithubProject, Long> {
     List<GithubProject> findByUserId(Long userId);
     List<GithubProject> findByUserGithubIdOrderByIdAsc(String githubId);
     boolean existsByGithubRepoIdAndUserId(Long githubRepoId, Long userId);
+    Optional<GithubProject> findByGithubRepoIdAndUserId(Long githubRepoId, Long userId);
 }

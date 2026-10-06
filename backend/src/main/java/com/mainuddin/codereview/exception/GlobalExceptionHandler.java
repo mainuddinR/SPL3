@@ -14,6 +14,16 @@ import java.util.Map;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(com.mainuddin.codereview.service.GithubDiscoveryException.class)
+    public ResponseEntity<Object> handleGithubDiscovery(com.mainuddin.codereview.service.GithubDiscoveryException ex) {
+        return ResponseEntity.status(ex.status()).body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(com.mainuddin.codereview.service.ReviewPublishException.class)
+    public ResponseEntity<Object> handleReviewPublish(com.mainuddin.codereview.service.ReviewPublishException ex) {
+        return ResponseEntity.status(ex.status()).body(Map.of("message", ex.getMessage()));
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(Exception.class)

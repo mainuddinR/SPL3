@@ -80,6 +80,12 @@ CREATE TABLE analysis_runs (
     analyzed_candidate_count NUMBER(10,0),
     analyzed_head_sha VARCHAR2(255 CHAR),
     analyzed_base_sha VARCHAR2(255 CHAR),
+    publication_status VARCHAR2(255 CHAR) DEFAULT 'NOT_PUBLISHED' NOT NULL,
+    github_review_id NUMBER(19,0),
+    github_review_url VARCHAR2(255 CHAR),
+    review_published_at TIMESTAMP(6),
+    published_head_sha VARCHAR2(255 CHAR),
+    publication_failure VARCHAR2(255 CHAR),
     CONSTRAINT ck_run_status CHECK (status IN ('PENDING','RUNNING','COMPLETED','FAILED')),
     CONSTRAINT fk_run_pr FOREIGN KEY (pull_request_id) REFERENCES pull_requests(id)
 );

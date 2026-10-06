@@ -11,7 +11,16 @@ export interface GithubRepo {
   description: string;
   language: string;
   stargazers_count: number;
+  private?: boolean;
+  updated_at?: string;
   owner: GithubOwner;
+}
+
+export interface RepositoryPage {
+  repositories: GithubRepo[];
+  storedRepositoryIds: number[];
+  page: number;
+  hasNext: boolean;
 }
 
 export interface GithubBranch {

@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { BehaviorSubject, Subject, of } from 'rxjs';
-import { AnalysisRunDetail, AnalysisRunSummary, PullRequest, SatdAnalysisResponse, SavedSatdFinding, SuggestionResponse } from '../../../models/pull-request.model';
+import { AnalysisRunDetail, AnalysisRunSummary, PullRequest, SatdAnalysisResponse, SavedSatdFinding, SuggestionResponse, ReviewPreview } from '../../../models/pull-request.model';
 import { PullRequestService } from '../../../services/pull-request.service';
 import { PullRequestDetails } from './pull-request-details';
 
@@ -12,6 +12,8 @@ describe('PullRequestDetails history', () => {
   let detail$: Subject<AnalysisRunDetail>;
   let analysis$: Subject<SatdAnalysisResponse[]>;
   let suggestion$: Subject<SuggestionResponse>;
+  let preview$: Subject<ReviewPreview>;
+  let publish$: Subject<ReviewPreview>;
   let service: jasmine.SpyObj<PullRequestService>;
   const params = new BehaviorSubject(convertToParamMap({ prId: '19' }));
   const pr: PullRequest = {
@@ -33,6 +35,10 @@ describe('PullRequestDetails history', () => {
   };
   const savedFinding: SavedSatdFinding = { ...finding, id: 12, label: 'SATD', debtCategory: 'DESIGN',
     aiSuggestion: null, aiSuggestionGeneratedAt: null, aiSuggestionProviderModel: null, aiSuggestionPromptVersion: null };
+  const review: ReviewPreview = { runId: 3, repository: 'owner/repo', pullRequestNumber: 123,
+    analyzedCandidateCount: 7, satdFindingCount: 0, inlineCommentCount: 0, unmappableCount: 0,
+    staleRevision: false, publicationStatus: 'NOT_PUBLISHED', summary: '7 candidates, 0 SATD findings',
+    inlineComments: [], githubReviewUrl: null, reviewPublishedAt: null, publicationFailure: null };
   const pageText = () => fixture.nativeElement.textContent as string;
   const showHistory = () => { component.selectedTab.set('history'); fixture.detectChanges(); };
 
@@ -41,9 +47,12 @@ describe('PullRequestDetails history', () => {
     detail$ = new Subject();
     analysis$ = new Subject();
     suggestion$ = new Subject();
+    preview$ = new Subject();
+    publish$ = new Subject();
     service = jasmine.createSpyObj<PullRequestService>('PullRequestService', [
       'getPullRequest', 'getPullRequestFiles', 'getPullRequestComments',
-      'getAnalysisRuns', 'getAnalysisRun', 'analyzePullRequest', 'syncPullRequestDetails', 'generateSuggestion'
+      'getAnalysisRuns', 'getAnalysisRun', 'analyzePullRequest', 'syncPullRequestDetails', 'generateSuggestion',
+      'previewReview', 'publishReview'
     ]);
     service.getPullRequest.and.returnValue(of(pr));
     service.getPullRequestFiles.and.returnValue(of([]));
@@ -52,6 +61,8 @@ describe('PullRequestDetails history', () => {
     service.getAnalysisRun.and.callFake(() => detail$.asObservable());
     service.analyzePullRequest.and.callFake(() => analysis$.asObservable());
     service.generateSuggestion.and.callFake(() => suggestion$.asObservable());
+    service.previewReview.and.callFake(() => preview$.asObservable());
+    service.publishReview.and.callFake(() => publish$.asObservable());
     await TestBed.configureTestingModule({
       imports: [PullRequestDetails],
       providers: [
@@ -205,5 +216,37 @@ describe('PullRequestDetails history', () => {
     fixture.detectChanges();
     expect(pageText()).toContain('Suggestion unavailable. Retry.');
     expect(pageText()).not.toContain('private provider error');
+  });
+  it('previews a zero-SATD review and requires a second confirmation action', () => {
+    history$.next([run]); showHistory(); component.selectHistoryRun(run);
+    detail$.next({ run, findings: [] });
+    component.previewGitHubReview(); fixture.detectChanges();
+    expect(pageText()).toContain('Loading review preview');
+    expect(service.publishReview).not.toHaveBeenCalled();
+    preview$.next(review); fixture.detectChanges();
+    expect(pageText()).toContain('0 SATD findings');
+    expect(pageText()).toContain('Confirm and Publish Review');
+    component.publishGitHubReview(); fixture.detectChanges();
+    expect(pageText()).toContain('Publishing...');
+    publish$.next({ ...review, publicationStatus: 'PUBLISHED',
+      githubReviewUrl: 'https://github.com/owner/repo/pull/123#pullrequestreview-1' });
+    fixture.detectChanges();
+    expect(pageText()).toContain('Published to GitHub');
+    expect(pageText()).not.toContain('Confirm and Publish Review');
+  });
+
+  it('blocks stale previews and shows a safe provider error', () => {
+    history$.next([run]); showHistory(); component.selectHistoryRun(run);
+    detail$.next({ run, findings: [] });
+    component.previewGitHubReview();
+    preview$.next({ ...review, staleRevision: true }); fixture.detectChanges();
+    expect(pageText()).toContain('PR revision changed');
+    component.publishGitHubReview();
+    expect(service.publishReview).not.toHaveBeenCalled();
+    component.previewGitHubReview();
+    preview$.error(new Error('provider secret'));
+    fixture.detectChanges();
+    expect(pageText()).toContain('Review preview unavailable');
+    expect(pageText()).not.toContain('provider secret');
   });
 });
