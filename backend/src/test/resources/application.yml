@@ -20,6 +20,8 @@ spring:
             client-secret: test-client-secret
 
 app:
+  github-monitor:
+    enabled: false
   database:
     test-mode: true
   jwt:
@@ -27,3 +29,7 @@ app:
     expiration-ms: 86400000
   ml-service:
     url: http://localhost:8000
+  llm:
+    base-url: http://localhost:11434/v1
+    api-key: test-key
+    model: llama3.2

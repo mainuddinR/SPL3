@@ -9,6 +9,9 @@ import com.mainuddin.codereview.repository.UserRepository;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -30,6 +33,8 @@ public class GithubService {
     private final com.mainuddin.codereview.repository.PullRequestRepository pullRequestRepository;
     private final PullRequestFileSnapshotService fileSnapshotService;
     private final PullRequestCommentSnapshotService commentSnapshotService;
+    private final NotificationService notificationService;
+    private final GithubPullRequestClient pullRequestClient;
 
     private static final int FILES_PER_PAGE = 100;
     private static final int MAX_FILE_PAGES = 30; // GitHub exposes at most 3,000 PR files.
@@ -37,13 +42,17 @@ public class GithubService {
     public GithubService(RestTemplate restTemplate, GithubProjectRepository githubProjectRepository, UserRepository userRepository,
                          com.mainuddin.codereview.repository.PullRequestRepository pullRequestRepository,
                          PullRequestFileSnapshotService fileSnapshotService,
-                         PullRequestCommentSnapshotService commentSnapshotService) {
+                         PullRequestCommentSnapshotService commentSnapshotService,
+                         NotificationService notificationService,
+                         GithubPullRequestClient pullRequestClient) {
         this.restTemplate = restTemplate;
         this.githubProjectRepository = githubProjectRepository;
         this.userRepository = userRepository;
         this.pullRequestRepository = pullRequestRepository;
         this.fileSnapshotService = fileSnapshotService;
         this.commentSnapshotService = commentSnapshotService;
+        this.notificationService = notificationService;
+        this.pullRequestClient = pullRequestClient;
     }
 
     private HttpHeaders createHeaders() {
@@ -98,21 +107,25 @@ public class GithubService {
 
     @Transactional
     public void fetchAndStorePullRequests(Long projectId) {
-        GithubProject project = githubProjectRepository.findById(projectId)
+        syncPullRequests(projectId, SecurityContextHolder.getContext().getAuthentication().getName());
+    }
+
+    @Transactional
+    public void fetchAndStorePullRequests(Long projectId, String githubId) {
+        syncPullRequests(projectId, githubId);
+    }
+
+    private void syncPullRequests(Long projectId, String githubId) {
+        GithubProject project = githubProjectRepository.lockById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
-        
-        String url = String.format("https://api.github.com/repos/%s/%s/pulls?state=all&per_page=100", 
-                project.getOwnerLogin(), project.getName());
-        HttpEntity<String> entity = new HttpEntity<>(createHeaders());
-        
-        ResponseEntity<List<GithubPullRequestDTO>> response = restTemplate.exchange(
-                url, HttpMethod.GET, entity, new ParameterizedTypeReference<List<GithubPullRequestDTO>>() {});
-                
-        List<GithubPullRequestDTO> prs = response.getBody();
+        if (!project.getUser().getGithubId().equals(githubId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found");
+        }
+        List<GithubPullRequestDTO> prs = pullRequestClient.fetch(githubId, project);
         if (prs != null) {
             for (GithubPullRequestDTO prDto : prs) {
-                PullRequest pr = pullRequestRepository.findByGithubPrId(prDto.getId())
-                        .orElse(new PullRequest());
+                Optional<PullRequest> existingPr = pullRequestRepository.findByGithubPrIdAndGithubProjectId(prDto.getId(), projectId);
+                PullRequest pr = existingPr.orElseGet(PullRequest::new);
                 
                 pr.setGithubPrId(prDto.getId());
                 pr.setNumber(prDto.getNumber());
@@ -126,7 +139,8 @@ public class GithubService {
                 pr.setBaseSha(sha(prDto.getBase()));
                 pr.setGithubProject(project);
                 
-                pullRequestRepository.save(pr);
+                pr = pullRequestRepository.save(pr);
+                if (existingPr.isEmpty()) notificationService.newPullRequest(project, pr);
             }
         }
     }

@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.mainuddin.codereview.dto.UiStatusDTO;
+import com.mainuddin.codereview.dto.GithubMonitorStatusDTO;
 import com.mainuddin.codereview.service.UiStatusService;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -32,5 +33,10 @@ public class UiCapabilityController {
     @GetMapping("/status")
     public UiStatusDTO status() {
         return statusService.status(SecurityContextHolder.getContext().getAuthentication().getName());
+    }
+
+    @GetMapping("/github-monitor")
+    public GithubMonitorStatusDTO githubMonitorStatus() {
+        return statusService.githubMonitorStatus(SecurityContextHolder.getContext().getAuthentication().getName());
     }
 }

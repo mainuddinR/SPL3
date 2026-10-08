@@ -21,16 +21,18 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
     @Autowired
     private JwtUtils jwtUtils;
 
+    @Autowired
+    private GithubAuthorizedClientService authorizedClients;
+
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException {
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
-        
+
         String githubId = oAuth2User.getAttribute("id").toString();
         String username = oAuth2User.getAttribute("login");
         String email = oAuth2User.getAttribute("email");
         String avatarUrl = oAuth2User.getAttribute("avatar_url");
 
-        // Automatically register user if not present
         User user = userRepository.findByGithubId(githubId).orElseGet(() -> {
             User newUser = User.builder()
                     .githubId(githubId)
@@ -42,10 +44,21 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
             return userRepository.save(newUser);
         });
 
-        // Generate JWT
-        String token = jwtUtils.generateJwtToken(user.getGithubId(), user.getUsername());
+        // Keep the stored profile current when GitHub changes username/avatar/email.
+        boolean profileChanged = !java.util.Objects.equals(user.getUsername(), username)
+                || !java.util.Objects.equals(user.getEmail(), email)
+                || !java.util.Objects.equals(user.getAvatarUrl(), avatarUrl);
+        if (profileChanged) {
+            user.setUsername(username);
+            user.setEmail(email);
+            user.setAvatarUrl(avatarUrl);
+            user = userRepository.save(user);
+        }
 
-        // Redirect to frontend with token
+        authorizedClients.linkLogin(authentication, githubId);
+
+        String token = jwtUtils.generateJwtToken(user.getGithubId(), user.getUsername());
         response.sendRedirect("http://localhost:4200/login/success?token=" + token);
     }
+
 }

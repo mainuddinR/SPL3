@@ -21,6 +21,7 @@ export const routes: Routes = [
       { path: 'dashboard/repos', loadComponent: () => import('./features/dashboard/components/repository-list/repository-list').then(m => m.RepositoryList) },
       { path: 'dashboard/repos/:owner/:repo', loadComponent: () => import('./features/dashboard/components/repository-details/repository-details').then(m => m.RepositoryDetails) },
       { path: 'dashboard/projects/:projectId/pulls', loadComponent: () => import('./features/pull-requests/pull-request-list/pull-request-list').then(m => m.PullRequestList) },
+      { path: 'dashboard/projects/:projectId/design-patterns', loadComponent: () => import('./features/dashboard/components/repository-design-patterns/repository-design-patterns').then(m => m.RepositoryDesignPatterns) },
       { path: 'dashboard/pulls/:prId', loadComponent: () => import('./features/pull-requests/pull-request-details/pull-request-details').then(m => m.PullRequestDetails) },
       { path: 'settings', loadComponent: () => import('./features/settings/settings').then(m => m.Settings) },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }

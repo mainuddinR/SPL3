@@ -8,8 +8,10 @@
 </div>
 
 <div *ngIf="!loading && !error && dashboardData as data">
-  <h2 class="text-xl font-bold text-gray-900 mb-2">PR Analysis Dashboard</h2>
-  <p class="text-sm text-gray-600 mb-5">Statistics describe saved findings from each PR's latest completed analysis of its stored diff. They are not a complete inventory of repository source code.</p>
+  <div class="mb-5 flex items-center gap-2">
+    <h2 class="text-xl font-bold text-gray-900">Dashboard</h2>
+    <app-info-popover label="How Dashboard metrics are calculated">Dashboard metrics use each PR's latest completed analysis of its stored diff.</app-info-popover>
+  </div>
 
   <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-6">
     <app-stats-card title="Repositories" [value]="data.stats.repositoryCount" icon="folder" route="/dashboard/repositories" colorClass="bg-indigo-100 text-indigo-600" />
@@ -26,16 +28,14 @@
 
   <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 mb-8">
     <section class="bg-white rounded shadow p-5" aria-labelledby="category-heading">
-      <h3 id="category-heading" class="text-lg font-semibold mb-1">Category Distribution</h3>
-      <p class="text-sm text-gray-500 mb-4">Unclassified: assessment ran without a unique category. Not Assessed: historical finding without category assessment.</p>
+      <div class="mb-4 flex items-center gap-2"><h3 id="category-heading" class="text-lg font-semibold">Category Distribution</h3><app-info-popover label="About SATD categories"><ul class="space-y-1"><li>Design: structural or maintainability debt.</li><li>Defect: acknowledged bugs or incorrect behavior.</li><li>Test: missing or inadequate tests.</li><li>Requirement: unfinished functionality.</li><li>Documentation: missing or outdated documentation.</li><li>Unclassified: assessed without a unique category.</li><li>Not Assessed: no saved category assessment.</li></ul></app-info-popover></div>
       <div *ngFor="let item of categories" class="mb-3">
         <div class="flex justify-between text-sm"><span>{{ item.label }}</span><span>{{ data.categoryDistribution[item.key] }}</span></div>
         <div class="h-2 rounded bg-gray-100" aria-hidden="true"><div class="h-2 rounded bg-indigo-500" [style.width.%]="barWidth(data.categoryDistribution[item.key], data.categoryDistribution)"></div></div>
       </div>
     </section>
     <section class="bg-white rounded shadow p-5" aria-labelledby="severity-heading">
-      <h3 id="severity-heading" class="text-lg font-semibold mb-1">Severity Distribution</h3>
-      <p class="text-sm text-gray-500 mb-4">Project prioritization scores from saved method evidence; Not Assessed findings have no score.</p>
+      <div class="mb-4 flex items-center gap-2"><h3 id="severity-heading" class="text-lg font-semibold">Severity Distribution</h3><app-info-popover label="About severity levels"><p>Saved method evidence determines project prioritization: Severity 1 is lowest, 2 lower, 3 moderate, 4 higher, and 5 highest. Not Assessed means no saved severity score.</p></app-info-popover></div>
       <div *ngFor="let item of severities" class="mb-3">
         <div class="flex justify-between text-sm"><span>{{ item.label }}</span><span>{{ data.severityDistribution[item.key] }}</span></div>
         <div class="h-2 rounded bg-gray-100" aria-hidden="true"><div class="h-2 rounded bg-blue-600" [style.width.%]="barWidth(data.severityDistribution[item.key], data.severityDistribution)"></div></div>
@@ -46,7 +46,8 @@
   <section aria-labelledby="repository-heading">
     <h3 id="repository-heading" class="text-xl font-bold text-gray-900 mb-4">Repository Analysis Summary</h3>
     <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      <app-repo-summary *ngFor="let repo of data.repositories" [repo]="repo" />
+      <p *ngIf="notice" role="status" class="text-sm text-green-700">{{ notice }}</p>
+      <app-repo-summary *ngFor="let repo of data.repositories" [repo]="repo" (removed)="repositoryRemoved($event)" />
     </div>
   </section>
 </div>

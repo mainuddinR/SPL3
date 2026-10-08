@@ -1,4 +1,4 @@
-<div class="p-6">
+<div class="p-4 sm:p-6">
   <button (click)="goBack()" class="mb-4 text-blue-600 hover:underline flex items-center gap-1">
     <span class="material-icons text-sm">arrow_back</span> Back
   </button>
@@ -13,24 +13,25 @@
 
   <div *ngIf="!loading() && pullRequest()">
     <div class="bg-white rounded shadow p-6 mb-6">
-      <div class="flex justify-between items-start">
+      <div class="flex flex-wrap justify-between items-start gap-4">
         <div>
-          <h1 class="text-2xl font-bold flex items-center gap-2">
+          <h1 class="text-2xl font-bold flex flex-wrap items-center gap-2 break-words">
             {{ pullRequest()?.title }}
             <span class="text-gray-500 font-normal">#{{ pullRequest()?.number }}</span>
           </h1>
           <p class="text-gray-500 mt-1">State: <span class="font-semibold">{{ pullRequest()?.state }}</span> | Created: {{ pullRequest()?.createdAt | date }}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button (click)="analyzePullRequest()" [disabled]="analyzing() || syncing()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow flex items-center gap-2 disabled:opacity-50">
+          <button (click)="analyzePullRequest()" [disabled]="analyzing() || syncing()" class="design-action flex items-center gap-2 disabled:opacity-50">
             <span *ngIf="analyzing()" class="animate-spin material-icons" aria-hidden="true">refresh</span>
             {{ analyzing() ? 'Analyzing PR... ' + (analysisProgress()?.processedCandidates ?? 0) + '/' + (analysisProgress()?.totalCandidates ?? 0) : analysisProgress()?.status === 'FAILED' ? 'Retry Analysis' : analysisProgress()?.status === 'COMPLETED' ? 'Analyze Again' : 'Analyze PR' }}
           </button>
-          <button (click)="syncDetails()" [disabled]="syncing() || analyzing()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow flex items-center gap-2 disabled:opacity-50">
+          <button (click)="syncDetails()" [disabled]="syncing() || analyzing()" class="design-action flex items-center gap-2 disabled:opacity-50">
             <span *ngIf="syncing()" class="animate-spin material-icons">refresh</span>
             <span *ngIf="!syncing()" class="material-icons">sync</span>
             Sync Details
           </button>
+          <button type="button" (click)="openDesignCheck()" class="design-action flex items-center gap-2" aria-controls="pr-design-area"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v6M5 10h14M5 10v6M19 10v6"/><rect x="9" y="1" width="6" height="4" rx="1"/><rect x="2" y="16" width="6" height="5" rx="1"/><rect x="16" y="16" width="6" height="5" rx="1"/></svg>Design Check</button>
         </div>
       </div>
     </div>
@@ -103,7 +104,7 @@
 
     <!-- Tabs -->
     <div class="border-b border-gray-200 mb-6">
-      <nav class="-mb-px flex gap-6">
+      <nav class="-mb-px flex flex-wrap gap-6">
         <button (click)="selectedTab.set('overview')" 
                 [class.border-blue-500]="selectedTab() === 'overview'" 
                 [class.text-blue-600]="selectedTab() === 'overview'"
@@ -136,10 +137,20 @@
                 class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
           Analysis History
         </button>
+        <button (click)="selectedTab.set('design')"
+                [class.border-blue-500]="selectedTab() === 'design'"
+                [class.text-blue-600]="selectedTab() === 'design'"
+                [class.border-transparent]="selectedTab() !== 'design'"
+                [class.text-gray-500]="selectedTab() !== 'design'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          Design Conformance
+        </button>
       </nav>
     </div>
 
     <!-- Overview Tab -->
+    <div *ngIf="selectedTab() === 'design' && prId()" id="pr-design-area" tabindex="-1" class="scroll-mt-4"><app-pr-design-conformance [prId]="prId()!" /></div>
+
     <div *ngIf="selectedTab() === 'overview'" class="bg-white rounded shadow p-6 whitespace-pre-wrap">
       {{ pullRequest()?.body || 'No description provided.' }}
     </div>

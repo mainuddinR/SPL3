@@ -22,6 +22,12 @@
       </span>
     </div>
     <p class="text-sm text-gray-600 mt-4">Connected repositories: {{ current.connectedRepositoryCount }}</p>
+    <div *ngIf="monitorStatus()?.enabled && monitorStatus()?.githubSessionConnected === false"
+         class="notification-monitor-alert mt-4 rounded-lg border px-4 py-3 text-sm" role="status">
+      <p class="font-semibold">GitHub monitoring paused — reconnect GitHub</p>
+      <p class="mt-1">Your SPL3 session is active, but the server needs a new GitHub sign-in to resume automatic PR checks.</p>
+      <a href="http://localhost:8080/oauth2/authorization/github" class="mt-2 inline-block font-semibold underline">Reconnect GitHub</a>
+    </div>
     <button type="button" (click)="signOut()" class="mt-4 border border-red-300 text-red-700 rounded px-4 py-2 hover:bg-red-50">Sign out</button>
   </section>
 
@@ -38,6 +44,18 @@
         <select [value]="preferences.pageSize()" (change)="changePageSize($event)" class="block w-full mt-2 border rounded px-3 py-2">
           <option [value]="10">10</option><option [value]="25">25</option><option [value]="50">50</option>
         </select>
+      </label>
+      <label class="text-sm font-medium">Layout density
+        <select [value]="preferences.density()" (change)="changeDensity($event)" class="block w-full mt-2 border rounded px-3 py-2"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select>
+      </label>
+      <label class="text-sm font-medium">Sidebar
+        <select [value]="preferences.sidebar()" (change)="changeSidebar($event)" class="block w-full mt-2 border rounded px-3 py-2"><option value="expanded">Expanded</option><option value="compact">Compact</option></select>
+      </label>
+      <label class="text-sm font-medium">Motion
+        <select [value]="preferences.motion()" (change)="changeMotion($event)" class="block w-full mt-2 border rounded px-3 py-2"><option value="normal">Normal</option><option value="reduced">Reduced</option></select>
+      </label>
+      <label class="text-sm font-medium">Visual effects
+        <select [value]="preferences.effects()" (change)="changeEffects($event)" class="block w-full mt-2 border rounded px-3 py-2"><option value="standard">Standard</option><option value="reduced">Reduced transparency</option></select>
       </label>
     </div>
     <button type="button" (click)="reset()" class="mt-4 text-blue-600 hover:underline">Reset UI Preferences</button>

@@ -7,6 +7,7 @@ export interface DashboardStats {
 }
 
 export interface RepositoryAnalysisSummary {
+  designProfileStatus?: string;
   id: number;
   name: string;
   url: string;

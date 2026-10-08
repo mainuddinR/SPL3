@@ -4,4 +4,4 @@ import java.time.LocalDateTime;
 
 public record RepositorySummaryDTO(Long id, String name, String url, long pullRequestCount,
                                    long analyzedPullRequestCount, long currentSatdFindingCount,
-                                   LocalDateTime lastCompletedAnalysisAt) {}
+                                   LocalDateTime lastCompletedAnalysisAt, String designProfileStatus) {}

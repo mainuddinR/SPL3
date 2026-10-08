@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npm run build
+RUN NG_BUILD_MAX_WORKERS=2 npm run build
 
 FROM nginx:alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf

@@ -38,6 +38,8 @@ public class PullRequestController {
     private final SuggestionGenerationService suggestionGenerationService;
     private final ReviewPublishingService reviewPublishingService;
     private final ProgressiveAnalysisService progressiveAnalysisService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.mainuddin.codereview.repository.GithubProjectRepository projects;
 
     public PullRequestController(GithubService githubService, 
                                  PullRequestRepository pullRequestRepository,
@@ -118,6 +120,8 @@ public class PullRequestController {
 
     @GetMapping("/project/{projectId}")
     public ResponseEntity<List<PullRequest>> getPullRequests(@PathVariable Long projectId) {
+        projects.findByIdAndUserGithubId(projectId, org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName())
+                .orElseThrow(() -> new com.mainuddin.codereview.exception.ResourceNotFoundException("Repository not found"));
         return ResponseEntity.ok(pullRequestRepository.findByGithubProjectId(projectId));
     }
 

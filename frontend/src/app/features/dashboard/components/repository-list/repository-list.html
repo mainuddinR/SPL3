@@ -1,70 +1,136 @@
 <div class="flex flex-col gap-6">
-  <div>
-    <h1 class="text-2xl font-semibold text-gray-900">GitHub Repositories</h1>
-    <p class="text-gray-500 mt-1">Browse repositories available to your GitHub account or find a public user's repositories.</p>
-  </div>
+  <h1 class="text-2xl font-semibold text-gray-900">GitHub Repositories</h1>
+  @if (notice()) { <p role="status" class="text-sm text-green-700">{{ notice() }}</p> }
 
-  <div class="flex flex-wrap gap-2" role="tablist" aria-label="Repository discovery mode">
+  <div class="flex gap-2 overflow-x-auto border-b border-gray-200 pb-2" role="tablist" aria-label="Repository discovery mode">
     <button type="button" role="tab" [attr.aria-selected]="mode() === 'mine'" (click)="setMode('mine')"
-            class="px-4 py-2 rounded border" [class.bg-blue-600]="mode() === 'mine'" [class.text-white]="mode() === 'mine'">My Repositories</button>
+            class="whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium" [class.bg-blue-600]="mode() === 'mine'" [class.text-white]="mode() === 'mine'">My Repositories</button>
     <button type="button" role="tab" [attr.aria-selected]="mode() === 'user'" (click)="setMode('user')"
-            class="px-4 py-2 rounded border" [class.bg-blue-600]="mode() === 'user'" [class.text-white]="mode() === 'user'">Find by User</button>
+            class="whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium" [class.bg-blue-600]="mode() === 'user'" [class.text-white]="mode() === 'user'">Find by User</button>
+    <button type="button" role="tab" [attr.aria-selected]="mode() === 'repository'" (click)="setMode('repository')"
+            class="whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium" [class.bg-blue-600]="mode() === 'repository'" [class.text-white]="mode() === 'repository'">Search Repository</button>
   </div>
 
-  @if (mode() === 'user') {
-    <div class="bg-white rounded border p-4">
-      <label for="github-username" class="block text-sm font-medium mb-2">Exact GitHub username</label>
-      <div class="flex flex-wrap gap-2">
-        <input id="github-username" type="text" [value]="usernameInput()" (input)="onUsernameInput($event)"
-               (keyup.enter)="findUser()" placeholder="mainuddinR" class="border rounded px-3 py-2 flex-1 min-w-48">
-        <button type="button" (click)="findUser()" [disabled]="lookupLoading()"
-                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:opacity-50">{{ lookupLoading() ? 'Finding user...' : 'Find User' }}</button>
+  @if (mode() === 'user' && !selectedUsername()) {
+    <form class="rounded-xl border border-gray-200 bg-white p-4" (submit)="$event.preventDefault(); findUser()">
+      <label for="github-user-query" class="mb-2 block text-sm font-medium">Find a GitHub user</label>
+      <div class="flex flex-col gap-2 sm:flex-row">
+        <div class="relative min-w-0 flex-1">
+          <span class="material-icons absolute left-3 top-2.5 text-gray-500" aria-hidden="true">search</span>
+          <input id="github-user-query" type="search" [value]="usernameInput()" (input)="onUsernameInput($event)"
+                 placeholder="Username or name" class="w-full rounded-lg border py-2 pl-10 pr-10" autocomplete="off">
+          @if (usernameInput()) { <button type="button" (click)="clearUserQuery()" class="absolute right-2 top-2 rounded p-1 text-gray-500" aria-label="Clear user search">×</button> }
+        </div>
+        <button type="submit" [disabled]="userSearchLoading()" class="rounded-lg bg-blue-600 px-5 py-2 text-white hover:bg-blue-700 disabled:opacity-50">
+          {{ userSearchLoading() ? 'Searching…' : 'Search' }}
+        </button>
       </div>
+    </form>
+  }
+
+  @if (mode() === 'repository') {
+    <form class="rounded-xl border border-gray-200 bg-white p-4" (submit)="$event.preventDefault(); searchRepository()">
+      <label for="github-repo-query" class="mb-2 block text-sm font-medium">Search public repositories</label>
+      <div class="flex flex-col gap-2 sm:flex-row">
+        <div class="relative min-w-0 flex-1">
+          <span class="material-icons absolute left-3 top-2.5 text-gray-500" aria-hidden="true">search</span>
+          <input id="github-repo-query" type="search" [value]="repositoryInput()" (input)="onRepositoryInput($event)"
+                 placeholder="Repository name or owner/repository" class="w-full rounded-lg border py-2 pl-10 pr-10" autocomplete="off">
+          @if (repositoryInput()) { <button type="button" (click)="clearRepositoryQuery()" class="absolute right-2 top-2 rounded p-1 text-gray-500" aria-label="Clear repository search">×</button> }
+        </div>
+        <button type="submit" [disabled]="loading()" class="rounded-lg bg-blue-600 px-5 py-2 text-white hover:bg-blue-700 disabled:opacity-50">
+          {{ loading() ? 'Searching…' : 'Search' }}
+        </button>
+      </div>
+    </form>
+  }
+
+  @if (mode() === 'user' && selectedUsername()) {
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 class="text-lg font-semibold text-gray-900">Repositories by &#64;{{ selectedUsername() }}</h2>
+      <button type="button" (click)="changeUser()" class="text-sm font-medium text-blue-600 hover:underline">← Change user</button>
     </div>
   }
 
-  @if (mode() === 'mine' || selectedUsername()) {
-    <div class="bg-white rounded border p-4">
-      <label for="repo-filter" class="block text-sm font-medium mb-2">{{ mode() === 'mine' ? 'Search my repositories' : 'Filter repositories by ' + selectedUsername() }}</label>
-      <input id="repo-filter" type="search" (input)="onFilterInput($event)" placeholder="Filter by repository name"
-             class="border rounded px-3 py-2 w-full md:w-96">
-      <p class="text-xs text-gray-500 mt-2">Filters this page locally. Use Next for more repositories.</p>
+  @if (mode() === 'mine' || (mode() === 'user' && selectedUsername())) {
+    <div class="rounded-xl border border-gray-200 bg-white p-4">
+      <label for="repo-filter" class="mb-2 block text-sm font-medium">{{ mode() === 'mine' ? 'Search my repositories' : 'Filter this user’s repositories' }}</label>
+      <input id="repo-filter" type="search" (input)="onFilterInput($event)" placeholder="Filter current page by name"
+             class="w-full rounded-lg border px-3 py-2 md:w-96">
+      <span class="sr-only">Filters only the loaded page. Use pagination for more repositories.</span>
     </div>
   }
 
-  @if (loading()) {
-    <p role="status" class="text-blue-600">Loading repositories...</p>
-  } @else if (error()) {
-    <div role="alert" class="bg-red-50 border-l-4 border-red-400 p-4 text-sm text-red-700">{{ error() }}</div>
-  } @else if (mode() === 'user' && !selectedUsername()) {
-    <p class="text-gray-500">Enter an exact GitHub username, then select Find User.</p>
-  } @else {
-    @if (mode() === 'user') { <h2 class="font-semibold">Repositories by {{ selectedUsername() }}</h2> }
-    @if (filterPending()) { <p role="status" class="text-sm text-gray-500">Filtering...</p> }
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-      @for (repo of filtered(); track repo.id) {
-        <div class="flex flex-col">
-          <app-repository-card [repo]="repo"></app-repository-card>
-          <div class="bg-white border border-t-0 rounded-b p-3 flex justify-between items-center text-sm">
-            <span>{{ repo.private ? 'Private' : 'Public' }}</span>
-            @if (storedIds().has(repo.id)) {
-              <span class="text-green-700 font-medium">Already stored</span>
-            } @else {
-              <button type="button" (click)="selectRepo(repo)" class="text-blue-600 hover:underline font-medium">Connect Repository</button>
-            }
-          </div>
+  @if (error()) {
+    <div role="alert" class="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700">{{ error() }}</div>
+  }
+
+  @if (mode() === 'user' && !selectedUsername()) {
+    @if (userSearchLoading()) {
+      <p role="status" class="text-sm text-blue-600">Searching GitHub users…</p>
+    } @else if (submittedUserQuery() && !error()) {
+      <h2 class="text-sm font-medium text-gray-600">Results for “{{ submittedUserQuery() }}”</h2>
+      @if (userResults().length === 0) {
+        <div class="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-500">No GitHub users matched your search.</div>
+      } @else {
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          @for (user of userResults(); track user.login) {
+            <article class="flex min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              @if (user.avatar_url) { <img [src]="user.avatar_url" alt="" class="h-11 w-11 rounded-full"> }
+              <div class="min-w-0 flex-1">
+                <p class="truncate font-semibold text-gray-900">{{ user.name || user.login }}</p>
+                <p class="truncate text-sm text-gray-500">&#64;{{ user.login }}</p>
+              </div>
+              <button type="button" (click)="selectUser(user)" class="text-sm font-medium text-blue-600 hover:underline" [attr.aria-label]="'View repositories by ' + user.login">View repositories</button>
+            </article>
+          }
+        </div>
+        <div class="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3 text-sm">
+          <button type="button" (click)="loadUserPage(userPage() - 1)" [disabled]="userPage() === 1 || userSearchLoading()" class="text-blue-600 disabled:text-gray-400">Previous</button>
+          <span>Page {{ userPage() }}</span>
+          <button type="button" (click)="loadUserPage(userPage() + 1)" [disabled]="!userHasNext() || userSearchLoading()" class="text-blue-600 disabled:text-gray-400">Next</button>
         </div>
       }
-    </div>
-    @if (!filterPending() && filtered().length === 0) {
-      <div class="text-center py-12 bg-white rounded-lg border text-gray-500">No repositories matched your search.</div>
     }
-    <div class="flex justify-between items-center bg-white border rounded p-3 text-sm">
-      <button type="button" (click)="loadPage(currentPage() - 1)" [disabled]="currentPage() === 1 || loading()"
-              class="text-blue-600 disabled:text-gray-400">Previous</button>
-      <span>Page {{ currentPage() }}</span>
-      <button type="button" (click)="loadPage(currentPage() + 1)" [disabled]="!hasNext() || loading()"
-              class="text-blue-600 disabled:text-gray-400">Next</button>
-    </div>
+  }
+
+  @if (mode() === 'mine' || (mode() === 'user' && selectedUsername()) || (mode() === 'repository' && submittedRepositoryQuery())) {
+    @if (mode() === 'repository' && submittedRepositoryQuery()) { <h2 class="text-sm font-medium text-gray-600">Results for “{{ submittedRepositoryQuery() }}”</h2> }
+    @if (loading()) {
+      <p role="status" class="text-sm text-blue-600">Loading repositories…</p>
+    } @else if (!error()) {
+      @if (filterPending()) { <p role="status" class="text-sm text-gray-500">Filtering…</p> }
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+        @for (repo of filtered(); track repo.id) {
+          <div class="flex min-w-0 flex-col">
+            <app-repository-card [repo]="repo"></app-repository-card>
+            <div class="flex flex-wrap items-center justify-between gap-2 rounded-b-lg border border-t-0 bg-white p-3 text-sm">
+              <span>{{ repo.private ? 'Private' : 'Public' }}</span>
+              @if (storedIds().has(repo.id)) {
+                <span class="font-medium text-green-700">Already stored</span>
+                @if (storedProjects()[repo.id]) {
+                  <div class="flex w-full flex-wrap items-center gap-2">
+                    <button type="button" (click)="openStored(repo, 'pulls')" class="repository-action">View PRs</button>
+                    <button type="button" (click)="openStored(repo, 'design-patterns')" class="repository-action">Design Patterns</button>
+                    <button type="button" (click)="removeTarget.set(repo)" title="Remove repository" aria-label="Remove repository" class="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg repository-remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" /></svg></button>
+                  </div>
+                }
+              } @else {
+                <button type="button" (click)="selectRepo(repo)" class="font-medium text-blue-600 hover:underline" [attr.aria-label]="'Connect ' + repo.full_name">Connect Repository</button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+      @if (!filterPending() && filtered().length === 0) {
+        <div class="rounded-xl border border-gray-200 bg-white py-12 text-center text-gray-500">{{ mode() === 'repository' ? 'No public repositories matched your search.' : 'No repositories matched your search.' }}</div>
+      }
+      <div class="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3 text-sm">
+        <button type="button" (click)="loadPage(currentPage() - 1)" [disabled]="currentPage() === 1 || loading()" class="text-blue-600 disabled:text-gray-400">Previous</button>
+        <span>Page {{ currentPage() }}</span>
+        <button type="button" (click)="loadPage(currentPage() + 1)" [disabled]="!hasNext() || loading()" class="text-blue-600 disabled:text-gray-400">Next</button>
+      </div>
+    }
   }
 </div>
+@if (removeTarget(); as target) { <app-remove-repository [projectId]="storedProjects()[target.id]" [name]="target.full_name" (closed)="removeTarget.set(null)" (removed)="removedStored()" /> }

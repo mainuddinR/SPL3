@@ -1,0 +1,97 @@
+<div class="mx-auto max-w-5xl space-y-5 p-4 sm:p-6">
+  <a [routerLink]="['/dashboard/projects', projectId, 'pulls']" class="text-sm text-blue-600 hover:underline">Back to repository PRs</a>
+  <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div class="relative flex items-center gap-2">
+          <h1 class="text-2xl font-bold">Repository Design Profile</h1>
+          <app-info-popover label="About repository design profile">Analyzes Java source structure using deterministic AST rules. Results are heuristic structural evidence, not proof of developer intent.</app-info-popover>
+        </div>
+      </div>
+      <button type="button" (click)="refresh()" [disabled]="refreshing() || profile()?.status === 'RUNNING'"
+              class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
+        <span *ngIf="refreshing() || profile()?.status === 'RUNNING'" class="material-icons animate-spin text-base" aria-hidden="true">sync</span>
+        {{ profile() ? 'Refresh Pattern Profile' : 'Analyze Repository Design' }}
+      </button>
+    </div>
+    <p *ngIf="loading()" role="status" class="mt-4 text-sm text-gray-600">Loading design profile...</p>
+    <p *ngIf="error()" role="alert" class="mt-4 text-sm text-red-700">{{ error() }}</p>
+    <p *ngIf="!loading() && !profile() && !error()" class="mt-4 text-sm text-gray-600">Repository design has not been analyzed yet.</p>
+    <div *ngIf="profile() as current" class="mt-4 space-y-2 text-sm">
+      <div *ngIf="current.status === 'RUNNING'" role="status" class="flex items-center gap-3 rounded-lg bg-blue-50 p-4 text-blue-700"><span class="material-icons animate-spin" aria-hidden="true">sync</span><div><p class="font-medium">Analyzing repository...</p><p class="mt-1 text-xs">{{ current.progress }}</p></div></div>
+      <div *ngIf="current.status === 'FAILED'" role="alert" class="rounded-xl bg-amber-50 p-4 text-amber-900">
+        <div class="flex items-start gap-3"><span class="material-icons" aria-hidden="true">warning_amber</span><div><h2 class="font-semibold">{{ failureTitle(current) }}</h2><p class="mt-1 leading-relaxed">{{ failureDescription(current) }}</p></div></div>
+        <details *ngIf="current.failureCode" class="mt-3 text-xs"><summary class="cursor-pointer rounded font-medium focus-visible:outline-2 focus-visible:outline-blue-600">Details</summary><dl class="mt-2 space-y-1"><div>Code: {{ current.failureCode }}</div><div *ngIf="current.observed != null">Observed: {{ current.observed | number }}</div><div *ngIf="current.limit != null">Limit: {{ current.limit | number }}</div></dl></details>
+      </div>
+      <p *ngIf="current.analyzedCommitSha" class="pt-2 text-xs text-gray-500">Analyzed at commit: <code class="font-mono">{{ current.analyzedCommitSha | slice:0:7 }}</code>
+        <span *ngIf="current.analyzedAt"> Â· {{ current.analyzedAt | date:'medium' }}</span>
+        <span *ngIf="current.javaFileCount !== null"> Â· {{ current.javaFileCount }} Java files</span></p>
+      <p *ngIf="current.stale === true" role="status" class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900">
+        Design profile may be outdated. Current default branch: <code>{{ current.currentDefaultBranchSha | slice:0:7 }}</code>. Refresh the profile to compare against the latest commit.
+      </p>
+      <p *ngIf="current.status === 'COMPLETED' && current.stale === null" class="text-gray-500">Current default-branch revision could not be checked. Saved evidence remains tied to the analyzed commit.</p>
+    </div>
+  </section>
+
+  <ng-container *ngIf="profile()?.status === 'COMPLETED'">
+    <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-label="Analysis coverage">
+      <div class="flex items-center gap-2"><h2 class="text-lg font-semibold">Analysis Coverage</h2><app-info-popover label="About analysis coverage">New profiles count distinct repository-local relationships by field, constructor, inheritance, method parameter and return declarations. External, primitive and unresolved types are excluded. Historical profiles retain their recorded declaration counts.</app-info-popover></div>
+      <ng-container *ngIf="profile() as current">
+      <dl *ngIf="current.diagnostics" class="grid grid-cols-2 gap-4 rounded-xl bg-gray-50 p-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div *ngFor="let metric of metrics(current)" class="min-w-0"><dt class="text-xs text-gray-500">{{ metric.label }}</dt><dd class="mt-1 text-xl font-semibold text-gray-900">{{ metric.value | number }}</dd></div>
+      </dl>
+        <p *ngIf="!current.diagnostics" class="mt-3 text-sm text-gray-600">{{ current.javaFileCount }} Java files analyzed. Detailed coverage was not recorded for this saved profile.</p>
+      </ng-container>
+    </section>
+    <section *ngIf="profile()?.javaFileCount === 0" class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <h2 class="font-semibold">No Java source detected</h2><p class="mt-2 text-sm text-gray-600">Java design-pattern analysis is not applicable to this repository snapshot.</p>
+    </section>
+    <ng-container *ngIf="profile()?.javaFileCount !== 0">
+      <ng-container *ngIf="profile()?.designSummary as design; else legacyProfile">
+        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-label="Architectural profile">
+          <div class="flex items-center gap-2"><h2 class="text-lg font-semibold">Architectural Style</h2>
+            <app-info-popover label="About architectural style">Conservative descriptions derived separately from saved architectural occurrences.<ul class="mt-2 space-y-1"><li *ngFor="let name of supportedPatterns('ARCHITECTURAL')">{{ name }}</li></ul></app-info-popover></div>
+          <p class="mt-3 text-xl font-semibold text-gray-900">{{ design.architecturalStyle }}</p>
+          <div class="mt-4 grid gap-3 sm:grid-cols-2">
+            <article *ngFor="let convention of design.architecturalConventionSummaries" class="min-w-0 rounded-lg border border-gray-200 p-4">
+              <h3 class="font-medium">{{ label(convention.patternType) }}</h3><p class="mt-1 text-sm text-gray-600">{{ convention.occurrenceCount }} occurrences</p><div class="mt-2 flex flex-wrap gap-2"><app-design-badge value="HIGH" [count]="convention.highConfidenceCount" /><app-design-badge value="MEDIUM" [count]="convention.mediumConfidenceCount" /></div>
+              <details appDesignDisclosure class="mt-3 text-sm"><summary>View occurrences</summary><ng-container *ngTemplateOutlet="occurrenceList; context: { $implicit: convention.patternType }" /></details>
+            </article>
+          </div>
+        </section>
+        <section class="space-y-4" aria-label="GoF design profile">
+          <div class="flex items-center gap-2"><h2 class="text-xl font-semibold">GoF Patterns</h2><app-info-popover label="About GoF patterns"><ul class="space-y-1"><li *ngFor="let name of supportedPatterns('GOF')">{{ name }}</li></ul></app-info-popover></div>
+          <article *ngIf="design.mixedPatternUsage" class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><h3 class="text-lg font-semibold">Mixed GoF Design</h3><p class="mt-2 text-sm text-gray-600">This repository uses multiple GoF patterns without one pattern clearly dominating the design.</p></article>
+          <article *ngIf="design.primaryPatternStatus === 'LOCALIZED'" class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><h3 class="font-semibold">No repository-wide dominant GoF pattern</h3><p class="mt-2 text-sm text-gray-600">{{ label(design.patternSummaries[0].patternType) }} is used in a localized area or lacks sufficient broad, high-confidence evidence for dominance.</p></article>
+          <article *ngIf="design.primaryPatternStatus === 'NO_GOF'" class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><h3 class="font-semibold">No supported GoF pattern detected</h3><p class="mt-2 text-sm text-gray-600">The analyzed Java structure did not meet the structural-evidence threshold for the currently supported GoF patterns.</p></article>
+          <div class="grid gap-4 md:grid-cols-2">
+            <article *ngFor="let pattern of design.patternSummaries" class="design-pattern-card min-w-0 rounded-xl border border-gray-200 bg-white p-5 shadow-sm" [class.design-profile-primary]="pattern.classification === 'PRIMARY'" [ngClass]="pattern.classification === 'PRIMARY' ? 'md:col-span-2' : ''">
+              <div class="flex flex-wrap items-center gap-2"><h3 class="text-xl font-semibold">{{ label(pattern.patternType) }}</h3><span class="design-role">{{ label(pattern.classification) }}</span><app-info-popover *ngIf="pattern.classification === 'PRIMARY'" label="About primary pattern">{{ design.rankingExplanation }}</app-info-popover></div>
+              <p class="mt-3 text-lg font-semibold">{{ pattern.occurrenceCount }} occurrences</p>
+              <div class="mt-2 flex flex-wrap gap-2"><app-design-badge value="HIGH" [count]="pattern.highConfidenceCount" /><app-design-badge value="MEDIUM" [count]="pattern.mediumConfidenceCount" /></div>
+              <p class="mt-1 text-sm text-gray-600">{{ pattern.participatingClassCount }} participating classes · {{ pattern.packageCount }} packages<span *ngIf="pattern.sourceRootCount !== null"> · {{ pattern.sourceRootCount }} source roots</span></p>
+              <details class="mt-3 text-sm"><summary class="cursor-pointer text-blue-600">Ranking details</summary><p class="mt-2">Evidence score: {{ pattern.importanceScore }}. {{ design.rankingExplanation }}</p></details>
+              <details appDesignDisclosure class="mt-3 text-sm"><summary>View occurrences</summary><ng-container *ngTemplateOutlet="occurrenceList; context: { $implicit: pattern.patternType }" /></details>
+            </article>
+          </div>
+        </section>
+      </ng-container>
+    </ng-container>
+  </ng-container>
+  <ng-template #occurrenceList let-type>
+    <article *ngFor="let occurrence of occurrencesFor(type); let i = index" class="mt-3 min-w-0 rounded-lg border border-gray-200 p-4">
+      <div class="flex flex-wrap items-start justify-between gap-3"><h4 class="font-semibold">{{ label(type) }} #{{ i + 1 }}</h4><app-design-badge [value]="occurrence.confidence" [confidence]="true" /></div>
+      <p class="mt-2 text-sm text-gray-700">{{ occurrence.rationale }}</p>
+      <details appDesignDisclosure class="mt-3 text-sm"><summary>View evidence</summary><p class="mt-2 text-gray-600">{{ occurrence.confidenceReason }}</p>
+        <app-design-evidence [evidence]="occurrence.evidence" />
+      </details>
+    </article>
+  </ng-template>
+  <ng-template #legacyProfile>
+    <section *ngFor="let family of ['GOF', 'ARCHITECTURAL']" class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div class="flex items-center gap-2"><h2 class="text-lg font-semibold">{{ family === 'GOF' ? 'GoF Patterns' : 'Architectural Conventions' }}</h2><app-info-popover [label]="family === 'GOF' ? 'About GoF patterns' : 'About architectural style'"><ul><li *ngFor="let name of supportedPatterns($any(family))">{{ name }}</li></ul></app-info-popover></div>
+      <p *ngIf="patterns($any(family)).length === 0" class="mt-3 text-sm text-gray-600">{{ family === 'GOF' ? 'No supported GoF pattern detected' : 'No supported architectural conventions detected' }}</p>
+      <ng-container *ngFor="let occurrence of patterns($any(family))"><article class="mt-3 rounded-lg border border-gray-200 p-4"><h3 class="font-semibold">{{ label(occurrence.patternType) }}</h3><app-design-badge [value]="occurrence.confidence" [confidence]="true" /><p class="mt-2 text-sm">{{ occurrence.rationale }}</p><details appDesignDisclosure class="mt-3 text-sm"><summary>View evidence</summary><p>{{ occurrence.confidenceReason }}</p><app-design-evidence [evidence]="occurrence.evidence" /></details></article></ng-container>
+    </section>
+  </ng-template>
+</div>

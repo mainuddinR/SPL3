@@ -21,10 +21,13 @@ describe('RepositoryList discovery', () => {
 
   beforeEach(async () => {
     firstPage = new Subject();
-    service = jasmine.createSpyObj<GithubService>('GithubService', ['myRepositories', 'userRepositories']);
+    service = jasmine.createSpyObj<GithubService>('GithubService', ['myRepositories', 'userRepositories', 'searchUsers', 'searchRepositories', 'storedProjects']);
+    service.storedProjects.and.returnValue(of([]));
     router = jasmine.createSpyObj<Router>('Router', ['navigate']);
     service.myRepositories.and.returnValue(firstPage.asObservable());
     service.userRepositories.and.returnValue(of(page([])));
+    service.searchUsers.and.returnValue(of({ users: [], page: 1, hasNext: false }));
+    service.searchRepositories.and.returnValue(of(page([])));
     await TestBed.configureTestingModule({ imports: [RepositoryList], providers: [
       { provide: GithubService, useValue: service }, { provide: Router, useValue: router }
     ] }).compileComponents();
@@ -34,6 +37,13 @@ describe('RepositoryList discovery', () => {
   });
 
   afterEach(() => fixture.destroy());
+  it('uses an accessible icon-only removal action for a stored repository', () => {
+    component.storedProjects.set({ 2: 7 });
+    firstPage.next(page([repo(2, 'saved')])); fixture.detectChanges();
+    const button = fixture.nativeElement.querySelector('[aria-label="Remove repository"]') as HTMLButtonElement;
+    expect(button.title).toBe('Remove repository'); expect(button.querySelector('svg')).not.toBeNull();
+    expect(text()).not.toContain('SPL3'); expect(text()).toContain('Design Patterns');
+  });
 
   it('loads My Repositories by default and marks saved repositories', () => {
     expect(service.myRepositories).toHaveBeenCalledOnceWith(1);
@@ -76,20 +86,54 @@ describe('RepositoryList discovery', () => {
     expect(component.currentPage()).toBe(2);
   });
 
-  it('resolves exact username on submit and filters only that user page', fakeAsync(() => {
+  it('searches users only on submit, selects one, and filters that user page locally', fakeAsync(() => {
     component.setMode('user'); fixture.detectChanges();
     expect(service.userRepositories).not.toHaveBeenCalled();
-    const username = fixture.nativeElement.querySelector('#github-username') as HTMLInputElement;
+    const username = fixture.nativeElement.querySelector('#github-user-query') as HTMLInputElement;
+    username.value = 'mainuddin'; username.dispatchEvent(new Event('input'));
     username.value = 'mainuddinR'; username.dispatchEvent(new Event('input'));
     expect(service.userRepositories).not.toHaveBeenCalled();
-    service.userRepositories.and.returnValue(of(page([repo(4, 'portfolio-lab'), repo(5, 'other')])));
+    expect(service.searchUsers).not.toHaveBeenCalled();
+    service.searchUsers.and.returnValue(of({ users: [{ login: 'mainuddinR', avatar_url: '', html_url: '' }], page: 1, hasNext: false }));
     component.findUser(); fixture.detectChanges();
+    expect(service.searchUsers).toHaveBeenCalledOnceWith('mainuddinR', 1);
+    expect(text()).toContain('mainuddinR');
+    service.userRepositories.and.returnValue(of(page([repo(4, 'portfolio-lab'), repo(5, 'other')])));
+    component.selectUser(component.userResults()[0]); fixture.detectChanges();
     expect(service.userRepositories).toHaveBeenCalledOnceWith('mainuddinR', 1);
     const filter = fixture.nativeElement.querySelector('#repo-filter') as HTMLInputElement;
     filter.value = 'portfolio'; filter.dispatchEvent(new Event('input'));
     tick(400);
     expect(component.filtered().map(item => item.name)).toEqual(['portfolio-lab']);
+    component.changeUser(); fixture.detectChanges();
+    expect(component.selectedUsername()).toBe('');
   }));
+
+  it('submits repository search once, supports exact result, and keeps Backspace local', () => {
+    component.setMode('repository'); fixture.detectChanges();
+    const input = fixture.nativeElement.querySelector('#github-repo-query') as HTMLInputElement;
+    input.value = 'owner/portfolio'; input.dispatchEvent(new Event('input'));
+    expect(service.searchRepositories).not.toHaveBeenCalled();
+    service.searchRepositories.and.returnValue(of(page([repo(1, 'portfolio')])));
+    component.searchRepository(); fixture.detectChanges();
+    expect(service.searchRepositories).toHaveBeenCalledOnceWith('owner/portfolio', 1);
+    expect(text()).toContain('Connect Repository');
+    input.value = 'owner/portfoli'; input.dispatchEvent(new Event('input'));
+    expect(service.searchRepositories).toHaveBeenCalledTimes(1);
+    component.selectRepo(repo(1, 'portfolio'));
+    expect(router.navigate).toHaveBeenCalledWith(['/dashboard/repos', 'owner', 'portfolio']);
+  });
+
+  it('shows normal zero-user and zero-repository states', () => {
+    component.setMode('user');
+    component.onUsernameInput({ target: { value: 'missing' } } as unknown as Event);
+    component.findUser(); fixture.detectChanges();
+    expect(text()).toContain('No GitHub users matched your search.');
+    component.setMode('repository');
+    component.onRepositoryInput({ target: { value: 'missing-repo' } } as unknown as Event);
+    component.searchRepository(); fixture.detectChanges();
+    expect(text()).toContain('No public repositories matched your search.');
+  });
 
   it('shows safe rate-limit and re-login messages', () => {
     firstPage.error(new HttpErrorResponse({ status: 429, error: { message: 'provider details' } }));

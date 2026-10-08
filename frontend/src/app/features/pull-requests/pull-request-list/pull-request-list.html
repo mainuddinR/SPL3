@@ -1,11 +1,14 @@
-<div class="p-6">
-  <div class="flex justify-between items-center mb-6">
+<div class="p-3 sm:p-6">
+  <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
     <h1 class="text-2xl font-bold">Pull Requests</h1>
+    <div class="flex flex-wrap items-center gap-3">
+    <a [routerLink]="['/dashboard/projects', projectId(), 'design-patterns']" class="rounded border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50">Design Patterns</a>
     <button (click)="syncPullRequests()" [disabled]="syncing()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow flex items-center gap-2 disabled:opacity-50">
       <span *ngIf="syncing()" class="animate-spin material-icons">refresh</span>
       <span *ngIf="!syncing()" class="material-icons">sync</span>
       Sync with GitHub
     </button>
+    </div>
   </div>
 
   <div *ngIf="error()" class="bg-red-100 text-red-700 p-4 rounded mb-6">
@@ -20,8 +23,8 @@
     No pull requests found. Click "Sync with GitHub" to fetch them.
   </div>
 
-  <div *ngIf="!loading() && pullRequests().length > 0" class="bg-white rounded shadow overflow-x-auto">
-    <table class="min-w-full divide-y divide-gray-200">
+  <div *ngIf="!loading() && pullRequests().length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+    <table class="pr-list-table min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
           <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PR #</th>
@@ -32,18 +35,17 @@
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
-        <tr *ngFor="let pr of pullRequests()" class="hover:bg-gray-50">
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{{ pr.number }}</td>
-          <td class="px-6 py-4 text-sm font-medium text-gray-900 max-w-xs md:max-w-md lg:max-w-lg truncate" title="{{ pr.title }}">{{ pr.title }}</td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" 
-                  [ngClass]="{'bg-green-100 text-green-800': pr.state === 'open', 'bg-red-100 text-red-800': pr.state === 'closed'}">
-              {{ pr.state }}
+        <tr *ngFor="let pr of pullRequests()" class="hover:bg-gray-50 transition-colors">
+          <td data-label="PR number" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{{ pr.number }}</td>
+          <td data-label="Title" class="px-6 py-4 text-sm font-medium text-gray-900 max-w-xs md:max-w-md lg:max-w-lg truncate" title="{{ pr.title }}">{{ pr.title }}</td>
+          <td data-label="Status" class="px-6 py-4 whitespace-nowrap">
+            <span class="pr-state-chip" [ngClass]="statusClass(pr.state)">
+              {{ statusLabel(pr.state) }}
             </span>
           </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ pr.createdAt | date }}</td>
-          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-            <button (click)="viewDetails(pr.id)" class="text-blue-600 hover:text-blue-900">View Details</button>
+          <td data-label="Created" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ pr.createdAt | date }}</td>
+          <td data-label="Actions" class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <button (click)="viewDetails(pr.id)" class="rounded text-blue-600 hover:underline">View Details</button>
           </td>
         </tr>
       </tbody>

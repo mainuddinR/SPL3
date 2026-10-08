@@ -1,0 +1,53 @@
+<div class="relative" (click)="stop($event)">
+  <button type="button" (click)="toggle($event)" class="relative flex items-center justify-center rounded-full p-2 text-gray-700 hover:bg-gray-100"
+          aria-label="Notifications" aria-haspopup="dialog" [attr.aria-expanded]="open()" title="Notifications">
+    <span class="material-icons" aria-hidden="true">notifications_none</span>
+    <span *ngIf="notifications.unreadCount() > 0" class="absolute -right-1 -top-1 min-w-5 rounded-full bg-blue-700 px-1 text-center text-xs font-bold text-white" aria-label="Unread notifications">{{ notifications.unreadCount() > 99 ? '99+' : notifications.unreadCount() }}</span>
+    <span *ngIf="notifications.monitorStatus()?.enabled && notifications.monitorStatus()?.githubSessionConnected === false"
+          class="notification-session-warning absolute -bottom-1 -left-1 rounded-full px-1 text-xs font-bold" title="Automatic GitHub monitoring requires reconnection" aria-label="GitHub monitoring requires reconnection">!</span>
+  </button>
+
+  <section *ngIf="open()" role="dialog" aria-label="Notifications" class="notification-panel absolute right-0 z-50 mt-3 w-[min(23rem,calc(100vw-1rem))] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
+    <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-4">
+      <h2 class="text-base font-semibold text-gray-900">Notifications</h2>
+      <button type="button" (click)="notifications.markAllRead()" class="rounded text-xs font-medium text-blue-700 hover:underline disabled:opacity-50" [disabled]="notifications.unreadCount() === 0">Mark all as read</button>
+    </div>
+
+    <div class="px-4 py-3">
+      <div class="notification-segments inline-flex rounded-lg border p-1" role="tablist" aria-label="Notification filter">
+        <button type="button" role="tab" (click)="notifications.setFilter(false)" [attr.aria-selected]="!notifications.unreadOnly()" class="notification-segment rounded-md px-4 py-1.5 text-sm font-medium">All</button>
+        <button type="button" role="tab" (click)="notifications.setFilter(true)" [attr.aria-selected]="notifications.unreadOnly()" class="notification-segment rounded-md px-4 py-1.5 text-sm font-medium">Unread</button>
+      </div>
+    </div>
+
+    <div *ngIf="notifications.monitorStatus()?.enabled && notifications.monitorStatus()?.githubSessionConnected === false"
+         class="notification-monitor-alert mx-4 mb-3 rounded-lg border px-3 py-2 text-xs" role="status">
+      <span class="font-semibold">GitHub monitoring paused</span> — reconnect GitHub to resume automatic PR checks.
+      <a href="http://localhost:8080/oauth2/authorization/github" class="mt-1 block font-semibold underline">Reconnect GitHub</a>
+    </div>
+
+    <div class="notification-scroll max-h-96 overflow-y-auto border-t border-gray-200">
+      <p *ngIf="notifications.loading()" role="status" class="p-5 text-sm text-gray-500">Loading notifications…</p>
+      <p *ngIf="notifications.error()" role="alert" class="p-5 text-sm text-red-700">Notifications are unavailable. <button type="button" (click)="notifications.refresh()" class="underline">Try again</button></p>
+      <div *ngIf="!notifications.loading() && !notifications.error() && notifications.notifications().length === 0" class="p-8 text-center text-gray-500">
+        <span class="material-icons mb-2 block text-2xl" aria-hidden="true">notifications_off</span>
+        <p class="text-sm font-medium">You're all caught up.</p>
+      </div>
+      <div *ngFor="let item of notifications.notifications()" class="notification-row flex gap-3 border-b border-gray-100 px-4 py-3" [class.notification-row-unread]="!item.read" [attr.data-read]="item.read">
+        <span class="material-icons mt-1 text-blue-700" aria-hidden="true">call_split</span>
+        <button type="button" (click)="navigate(item.id, item.pullRequestId)" class="min-w-0 flex-1 rounded text-left">
+          <span class="mb-1 flex items-baseline justify-between gap-2 text-xs text-gray-500">
+            <span class="truncate font-medium">{{ item.repository }}</span>
+            <time class="shrink-0" [attr.datetime]="item.createdAt">{{ relativeTime(item.createdAt) }}</time>
+          </span>
+          <span class="block text-sm text-gray-900" [class.font-semibold]="!item.read">{{ item.title }}</span>
+          <span class="block truncate text-xs text-gray-600">{{ item.message }}</span>
+          <span *ngIf="!item.read" class="sr-only">Unread notification</span>
+        </button>
+        <button *ngIf="!item.read" type="button" (click)="notifications.markRead(item.id)" class="self-center rounded-full p-1 text-blue-700" aria-label="Mark notification as read" title="Mark as read">
+          <span class="notification-unread-dot block h-2.5 w-2.5 rounded-full" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
+  </section>
+</div>

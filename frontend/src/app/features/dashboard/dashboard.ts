@@ -1,3 +1,4 @@
+import { InfoPopover } from '../../components/info-popover/info-popover';
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -8,7 +9,7 @@ import { DashboardResponse } from '../../models/dashboard.model';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, StatsCard, RepoSummary],
+  imports: [CommonModule, StatsCard, RepoSummary, InfoPopover],
   templateUrl: './dashboard.html'
 })
 export class Dashboard implements OnInit {
@@ -17,6 +18,14 @@ export class Dashboard implements OnInit {
   dashboardData: DashboardResponse | null = null;
   loading = true;
   error = false;
+  notice = '';
+
+  repositoryRemoved(id: number) {
+    const repo = this.dashboardData?.repositories.find(item => item.id === id);
+    this.notice = `${repo?.name || 'Repository'} removed.`;
+    if (this.dashboardData) this.dashboardData.repositories = this.dashboardData.repositories.filter(item => item.id !== id);
+    this.fetchDashboardData();
+  }
 
   readonly categories = [
     { key: 'DESIGN', label: 'Design' }, { key: 'DEFECT', label: 'Defect' },

@@ -3,6 +3,7 @@ package com.mainuddin.codereview.controller;
 import com.mainuddin.codereview.dto.GithubBranchDTO;
 import com.mainuddin.codereview.dto.GithubRepoDTO;
 import com.mainuddin.codereview.dto.RepositoryPageDTO;
+import com.mainuddin.codereview.dto.GithubUserSearchDTO;
 import com.mainuddin.codereview.entity.GithubProject;
 import com.mainuddin.codereview.service.GithubService;
 import com.mainuddin.codereview.service.GithubDiscoveryService;
@@ -30,6 +31,18 @@ public class GithubController {
     @GetMapping("/repositories/me")
     public ResponseEntity<RepositoryPageDTO> myRepositories(@RequestParam(defaultValue = "1") int page) {
         return ResponseEntity.ok(discovery.mine(githubId(), page));
+    }
+
+    @GetMapping("/users/search")
+    public ResponseEntity<GithubUserSearchDTO> searchUsers(@RequestParam String q,
+            @RequestParam(defaultValue = "1") int page) {
+        return ResponseEntity.ok(discovery.searchUsers(githubId(), q, page));
+    }
+
+    @GetMapping("/repositories/search")
+    public ResponseEntity<RepositoryPageDTO> searchRepositories(@RequestParam String q,
+            @RequestParam(defaultValue = "1") int page) {
+        return ResponseEntity.ok(discovery.searchRepositories(githubId(), q, page));
     }
 
     @GetMapping("/users/{username}/repositories")

@@ -36,3 +36,16 @@ export interface GithubSearchResponse {
   incomplete_results: boolean;
   items: GithubRepo[];
 }
+
+export interface GithubUserResult {
+  login: string;
+  avatar_url: string;
+  html_url: string;
+  name?: string | null;
+}
+
+export interface GithubUserSearchPage {
+  users: GithubUserResult[];
+  page: number;
+  hasNext: boolean;
+}

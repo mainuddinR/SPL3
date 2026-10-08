@@ -14,3 +14,8 @@ export interface UiStatus {
   databaseConnected: boolean;
   ai: UiCapability;
 }
+
+export interface GithubMonitorStatus {
+  enabled: boolean;
+  githubSessionConnected: boolean;
+}

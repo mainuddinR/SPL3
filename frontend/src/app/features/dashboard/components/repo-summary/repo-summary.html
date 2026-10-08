@@ -3,12 +3,16 @@
     <a [href]="repo.url" target="_blank" rel="noopener noreferrer" class="hover:text-blue-600">{{ repo.name }}</a>
   </h4>
   <dl class="text-sm space-y-2">
+    <div class="flex flex-wrap justify-between gap-2"><dt>Design Profile</dt><dd class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium">{{ designStatus() }}</dd></div>
     <div class="flex justify-between"><dt>Pull Requests</dt><dd>{{ repo.pullRequestCount }}</dd></div>
     <div class="flex justify-between"><dt>Analyzed PRs</dt><dd>{{ repo.analyzedPullRequestCount }}</dd></div>
     <div class="flex justify-between"><dt>Current SATD Findings</dt><dd>{{ repo.currentSatdFindingCount }}</dd></div>
     <div class="flex justify-between gap-2"><dt>Last completed analysis</dt><dd>{{ repo.lastCompletedAnalysisAt ? (repo.lastCompletedAnalysisAt | date:'short') : 'Not analyzed' }}</dd></div>
   </dl>
-  <div class="mt-4 border-t border-gray-100 pt-4 text-center">
-    <a [routerLink]="['/dashboard/projects', repo.id, 'pulls']" class="text-sm font-medium text-blue-600 hover:text-blue-800">View Pull Requests →</a>
+  <div class="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4 text-sm">
+    <a [routerLink]="['/dashboard/projects', repo.id, 'pulls']" class="repository-action">View Pull Requests</a>
+    <a [routerLink]="['/dashboard/projects', repo.id, 'design-patterns']" class="repository-action">Design Patterns</a>
+    <button type="button" (click)="removing = true" title="Remove repository" aria-label="Remove repository" class="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg repository-remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" /></svg></button>
   </div>
 </div>
+@if (removing) { <app-remove-repository [projectId]="repo.id" [name]="repo.name" (closed)="removing = false" (removed)="removing = false; removed.emit(repo.id)" /> }

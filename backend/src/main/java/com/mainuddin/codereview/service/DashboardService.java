@@ -24,6 +24,10 @@ public class DashboardService {
     private final PullRequestRepository pullRequestRepository;
     private final AnalysisRunRepository runRepository;
     private final SATDFindingRepository findingRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.mainuddin.codereview.repository.RepositoryPatternProfileRepository profiles;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.mainuddin.codereview.design.RepositoryPatternProfileService designProfiles;
 
     public DashboardService(GithubProjectRepository projectRepository, PullRequestRepository pullRequestRepository,
                             AnalysisRunRepository runRepository, SATDFindingRepository findingRepository) {
@@ -39,12 +43,13 @@ public class DashboardService {
         long analyzedPullRequests;
         long findings;
         LocalDateTime lastCompleted;
+        String designStatus = "Not analyzed";
 
         RepositoryCounts(GithubProject project) { this.project = project; }
 
         RepositorySummaryDTO toDto() {
-            return new RepositorySummaryDTO(project.getId(), project.getName(), project.getHtmlUrl(),
-                    pullRequests, analyzedPullRequests, findings, lastCompleted);
+            return new RepositorySummaryDTO(project.getId(), project.getFullName(), project.getHtmlUrl(),
+                    pullRequests, analyzedPullRequests, findings, lastCompleted, designStatus);
         }
     }
 
@@ -53,6 +58,19 @@ public class DashboardService {
         List<GithubProject> projects = projectRepository.findByUserGithubIdOrderByIdAsc(githubId);
         Map<Long, RepositoryCounts> byProject = new LinkedHashMap<>();
         projects.forEach(project -> byProject.put(project.getId(), new RepositoryCounts(project)));
+        for (var counts : byProject.values()) {
+            profiles.findFirstByProjectIdOrderByIdDesc(counts.project.getId()).ifPresent(profile -> {
+                counts.designStatus = switch (profile.getStatus()) {
+                    case "RUNNING" -> "Running";
+                    case "FAILED" -> "Analysis failed";
+                    case "COMPLETED" -> {
+                        if (Integer.valueOf(0).equals(profile.getJavaFileCount())) yield "No Java source";
+                        yield designProfiles.toDto(profile, null).designSummary().cardLabel();
+                    }
+                    default -> "Not analyzed";
+                };
+            });
+        }
 
         long pullRequestCount = 0;
         if (!byProject.isEmpty()) {

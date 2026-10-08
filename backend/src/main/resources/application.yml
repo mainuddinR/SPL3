@@ -14,11 +14,20 @@ spring:
             scope: read:user,public_repo
 
 app:
+  design:
+    max-java-files: ${DESIGN_MAX_JAVA_FILES:250}
+    max-source-file-bytes: ${DESIGN_MAX_SOURCE_FILE_BYTES:262144}
+    max-total-source-bytes: ${DESIGN_MAX_TOTAL_SOURCE_BYTES:12582912}
+    max-tree-response-bytes: ${DESIGN_MAX_TREE_RESPONSE_BYTES:8388608}
   jwt:
     secret: ${JWT_SECRET}
     expiration-ms: 86400000 # 24 hours
   ml-service:
     url: ${ML_SERVICE_URL:http://localhost:8001}
+  github-monitor:
+    enabled: ${GITHUB_MONITOR_ENABLED:true}
+    interval-ms: ${GITHUB_MONITOR_INTERVAL_MS:120000}
+    initial-delay-ms: ${GITHUB_MONITOR_INITIAL_DELAY_MS:30000}
   llm:
     enabled: ${LLM_ENABLED:false}
     api-key: ${GROQ_API_KEY:${OPENAI_API_KEY:}}

@@ -26,13 +26,15 @@ class GithubDiscoveryServiceTest {
     private final OAuth2AuthorizedClientService clients = mock(OAuth2AuthorizedClientService.class);
     private final GithubProjectRepository projects = mock(GithubProjectRepository.class);
     private final GithubService github = mock(GithubService.class);
+    private final com.mainuddin.codereview.design.RepositoryPatternProfileService patternProfiles =
+            mock(com.mainuddin.codereview.design.RepositoryPatternProfileService.class);
     private MockRestServiceServer server;
     private GithubDiscoveryService service;
 
     @BeforeEach
     void setup() {
         server = MockRestServiceServer.createServer(http);
-        service = new GithubDiscoveryService(http, clients, projects, github);
+        service = new GithubDiscoveryService(http, new com.mainuddin.codereview.security.GithubAuthorizedClientService(clients), projects, github, patternProfiles);
         OAuth2AuthorizedClient client = mock(OAuth2AuthorizedClient.class);
         when(client.getAccessToken()).thenReturn(new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER,
                 "dummy-test-token", java.time.Instant.now(), java.time.Instant.now().plusSeconds(3600)));
@@ -82,9 +84,24 @@ class GithubDiscoveryServiceTest {
                 .andRespond(withSuccess(json, MediaType.APPLICATION_JSON));
         assertEquals(7L, service.exact("user-id", "owner", "canonical").getId());
         GithubProject saved = new GithubProject();
+        saved.setId(42L);
         when(github.saveSelectedRepository(any(), eq("user-id"))).thenReturn(saved);
         assertSame(saved, service.store("user-id", "owner", "canonical"));
+        verify(patternProfiles).ensureInitialProfile(42L, "user-id");
         verify(github).saveSelectedRepository(argThat(repo -> repo.getId() == 7L), eq("user-id"));
+        server.verify();
+    }
+
+    @Test
+    void designProfileFailureDoesNotUndoSavedRepository() {
+        String json = "{\"id\":7,\"name\":\"canonical\",\"full_name\":\"owner/canonical\",\"owner\":{\"login\":\"owner\"}}";
+        server.expect(requestTo("https://api.github.com/repos/owner/canonical"))
+                .andRespond(withSuccess(json, MediaType.APPLICATION_JSON));
+        GithubProject saved = new GithubProject(); saved.setId(42L);
+        when(github.saveSelectedRepository(any(), eq("user-id"))).thenReturn(saved);
+        doThrow(new IllegalStateException("design analysis unavailable"))
+                .when(patternProfiles).ensureInitialProfile(42L, "user-id");
+        assertSame(saved, service.store("user-id", "owner", "canonical"));
         server.verify();
     }
 
@@ -108,5 +125,62 @@ class GithubDiscoveryServiceTest {
                 assertThrows(GithubDiscoveryException.class, () -> service.mine("user-id", 1)).status());
         assertEquals(HttpStatus.NOT_FOUND,
                 assertThrows(GithubDiscoveryException.class, () -> service.byUser("user-id", "missing", 1)).status());
+    }
+
+    @Test
+    void userSearchUsesTokenAndReturnsPagedResultsWithoutLeakingCredentials() {
+        server.expect(requestTo("https://api.github.com/search/users?q=john+smith&per_page=50&page=2"))
+                .andExpect(header("Authorization", "Bearer dummy-test-token"))
+                .andRespond(withSuccess("{\"items\":[{\"login\":\"johnsmith\",\"avatar_url\":\"https://example.com/a.png\"}]}",
+                        MediaType.APPLICATION_JSON).header("Link", "<https://api.github.com/search/users?page=3>; rel=\"next\""));
+        var result = service.searchUsers("user-id", "john smith", 2);
+        assertEquals("johnsmith", result.users().getFirst().login());
+        assertEquals(2, result.page());
+        assertTrue(result.hasNext());
+        assertFalse(result.toString().contains("dummy-test-token"));
+        server.verify();
+    }
+
+    @Test
+    void searchesPublicRepositoriesWithTokenAndHandlesEmptyResults() {
+        server.expect(requestTo("https://api.github.com/search/repositories?q=portfolio&per_page=50&page=1"))
+                .andExpect(header("Authorization", "Bearer dummy-test-token"))
+                .andRespond(withSuccess("{\"items\":[]}", MediaType.APPLICATION_JSON));
+        assertTrue(service.searchRepositories("user-id", "portfolio", 1).repositories().isEmpty());
+        server.verify();
+    }
+
+    @Test
+    void exactOwnerRepoUsesDirectLookupInsteadOfGlobalSearch() {
+        server.expect(requestTo("https://api.github.com/repos/owner/portfolio"))
+                .andExpect(header("Authorization", "Bearer dummy-test-token"))
+                .andRespond(withSuccess("{\"id\":7,\"name\":\"portfolio\",\"owner\":{\"login\":\"owner\"}}",
+                        MediaType.APPLICATION_JSON));
+        assertEquals(7L, service.searchRepositories("user-id", "owner/portfolio", 1).repositories().getFirst().getId());
+        server.verify();
+    }
+
+    @Test
+    void invalidSearchNeverCallsProvider() {
+        assertEquals(HttpStatus.BAD_REQUEST,
+                assertThrows(GithubDiscoveryException.class, () -> service.searchUsers("user-id", "ab", 1)).status());
+        assertEquals(HttpStatus.BAD_REQUEST,
+                assertThrows(GithubDiscoveryException.class, () -> service.searchRepositories("user-id", "x", 1)).status());
+        server.verify();
+    }
+
+    @Test
+    void userSearchRateLimitAndSessionFailureAreSafe() {
+        server.expect(requestTo("https://api.github.com/search/users?q=mainuddin&per_page=50&page=1"))
+                .andRespond(withStatus(HttpStatus.FORBIDDEN).body("private provider detail")
+                        .header("X-RateLimit-Remaining", "0"));
+        var limited = assertThrows(GithubDiscoveryException.class,
+                () -> service.searchUsers("user-id", "mainuddin", 1));
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, limited.status());
+        assertFalse(limited.getMessage().contains("private provider detail"));
+        when(clients.loadAuthorizedClient("github", "user-id")).thenReturn(null);
+        assertEquals(HttpStatus.UNAUTHORIZED,
+                assertThrows(GithubDiscoveryException.class,
+                        () -> service.searchRepositories("user-id", "portfolio", 1)).status());
     }
 }

@@ -1,3 +1,4 @@
+import { DesignPatternService } from '../../../services/design-pattern.service';
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { BehaviorSubject, Subject, of } from 'rxjs';
@@ -80,6 +81,7 @@ describe('PullRequestDetails history', () => {
     await TestBed.configureTestingModule({
       imports: [PullRequestDetails],
       providers: [
+        { provide: DesignPatternService, useValue: { profileForPr: () => of(null), latestCheck: () => of(null), runCheck: jasmine.createSpy() } },
         { provide: PullRequestService, useValue: service },
         { provide: SettingsApiService, useValue: settingsApi },
         { provide: ActivatedRoute, useValue: { paramMap: params.asObservable(), snapshot: { queryParamMap: convertToParamMap({}) } } },
@@ -415,4 +417,31 @@ describe('PullRequestDetails history', () => {
     expect(pageText()).toContain('Review preview unavailable');
     expect(pageText()).not.toContain('provider secret');
   });
+  it('opens and focuses Design Check without starting a backend check', async () => {
+    const button = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).find(b => b.textContent?.includes('Design Check'))!;
+    expect(button).toBeDefined(); button.click(); fixture.detectChanges(); await fixture.whenStable();
+    expect(component.selectedTab()).toBe('design');
+    const area = fixture.nativeElement.querySelector('#pr-design-area');
+    expect(area).not.toBeNull(); expect(document.activeElement).toBe(area);
+    button.click(); fixture.detectChanges(); await fixture.whenStable();
+    expect(TestBed.inject(DesignPatternService).runCheck).not.toHaveBeenCalled();
+  });
+  for (const width of [320, 768, 1280]) {
+    it(`wraps the three PR header actions without overlap at ${width}px`, () => {
+      const host = fixture.nativeElement as HTMLElement;
+      host.style.width = `${width}px`; host.style.display = 'block';
+      const actions = Array.from(host.querySelectorAll<HTMLButtonElement>('button.design-action'));
+      expect(actions.length).toBe(3);
+      const boxes = actions.map(button => button.getBoundingClientRect());
+      const container = actions[0].parentElement!.getBoundingClientRect();
+      for (const box of boxes) {
+        expect(box.left).toBeGreaterThanOrEqual(container.left);
+        expect(box.right).toBeLessThanOrEqual(container.right + 1);
+      }
+      for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+        expect(boxes[i].right <= boxes[j].left || boxes[j].right <= boxes[i].left
+          || boxes[i].bottom <= boxes[j].top || boxes[j].bottom <= boxes[i].top).toBeTrue();
+      }
+    });
+  }
 });

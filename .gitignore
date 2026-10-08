@@ -96,3 +96,6 @@ ml-service/data/
 .tmp/
 .local/
 __MACOSX/
+
+# Controlled demo is an independent Git repository, never part of SPL3 history.
+/demo/design-pattern-demo/

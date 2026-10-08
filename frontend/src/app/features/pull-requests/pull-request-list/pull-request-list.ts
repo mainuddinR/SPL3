@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PullRequestService } from '../../../services/pull-request.service';
 import { PullRequest } from '../../../models/pull-request.model';
+import { NotificationService } from '../../../services/notification.service';
 
 @Component({
   selector: 'app-pull-request-list',
@@ -14,6 +15,7 @@ export class PullRequestList implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private prService = inject(PullRequestService);
+  private notifications = inject(NotificationService);
 
   projectId = signal<number | null>(null);
   pullRequests = signal<PullRequest[]>([]);
@@ -41,7 +43,7 @@ export class PullRequestList implements OnInit {
       },
       error: (err) => {
         console.error(err);
-        this.error.set('Failed to load pull requests.');
+        this.error.set(err.status === 404 ? 'Repository not found or no longer available.' : 'Failed to load pull requests.');
         this.loading.set(false);
       }
     });
@@ -55,6 +57,7 @@ export class PullRequestList implements OnInit {
     this.prService.syncPullRequests(pId).subscribe({
       next: () => {
         this.syncing.set(false);
+        this.notifications.refresh();
         this.loadPullRequests(pId);
       },
       error: (err) => {
@@ -67,5 +70,19 @@ export class PullRequestList implements OnInit {
 
   viewDetails(prId: number) {
     this.router.navigate(['/dashboard/pulls', prId]);
+  }
+
+  statusLabel(state: string): string {
+    const normalized = state?.toLowerCase();
+    if (normalized === 'open') return 'Open';
+    if (normalized === 'closed') return 'Closed';
+    if (normalized === 'merged') return 'Merged';
+    return state || 'Unknown';
+  }
+
+  statusClass(state: string): string {
+    const normalized = state?.toLowerCase();
+    if (normalized === 'open' || normalized === 'closed' || normalized === 'merged') return `pr-state-${normalized}`;
+    return '';
   }
 }

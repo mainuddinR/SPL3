@@ -28,12 +28,40 @@ describe('Dashboard', () => {
   });
 
   afterEach(() => http.verify());
+  it('uses collapsed accessible category and severity info icons without About rows', () => {
+    const fixture = TestBed.createComponent(Dashboard); fixture.detectChanges();
+    http.expectOne(url).flush(structuredClone(data)); fixture.detectChanges();
+    for (const label of ['About SATD categories', 'About severity levels']) {
+      const button = fixture.nativeElement.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement;
+      expect(button).not.toBeNull(); expect(button.getAttribute('aria-expanded')).toBe('false');
+      button.click(); fixture.detectChanges(); expect(button.getAttribute('aria-expanded')).toBe('true');
+    }
+    expect(fixture.nativeElement.textContent).not.toContain('About categories');
+    expect(fixture.nativeElement.textContent).not.toContain('About severity');
+    expect(fixture.nativeElement.querySelector('button[aria-label="Remove repository"]').classList.contains('repository-remove')).toBeTrue();
+  });
+  it('uses a trash icon, supports Cancel and removes the card after successful deletion', () => {
+    const fixture = TestBed.createComponent(Dashboard); fixture.detectChanges();
+    http.expectOne(url).flush(structuredClone(data)); fixture.detectChanges();
+    const remove = fixture.nativeElement.querySelector('button[aria-label="Remove repository"]') as HTMLButtonElement;
+    expect(remove.title).toBe('Remove repository'); expect(remove.querySelector('svg')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('SPL3'); remove.click(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="dialog"]')).not.toBeNull();
+    (fixture.nativeElement.querySelector('[role="dialog"] button') as HTMLButtonElement).click(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeNull();
+    remove.click(); fixture.detectChanges();
+    (fixture.nativeElement.querySelectorAll('[role="dialog"] button')[1] as HTMLButtonElement).click();
+    http.expectOne('http://localhost:8080/api/projects/7').flush(null);
+    http.expectOne(url).flush({ ...data, stats: { ...data.stats, repositoryCount: 0 }, repositories: [] });
+    fixture.detectChanges(); expect(fixture.nativeElement.querySelector('app-repo-summary')).toBeNull();
+    expect(fixture.componentInstance.notice).toBe('ant removed.');
+  });
 
   it('loads persisted statistics with honest labels and no placeholder scores', () => {
     const fixture = TestBed.createComponent(Dashboard);
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Loading dashboard statistics');
-    http.expectOne(url).flush(data);
+    http.expectOne(url).flush(structuredClone(data));
     fixture.detectChanges();
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Analyzed PRs');
@@ -43,7 +71,10 @@ describe('Dashboard', () => {
     expect(text).toContain('Not Assessed');
     expect(text).toContain('Severity 5');
     expect(text).toContain('Repository Analysis Summary');
-    expect(text).toContain('not a complete inventory');
+    expect(fixture.nativeElement.querySelector('h2').textContent.trim()).toBe('Dashboard');
+    expect(text).not.toContain('PR Analysis Dashboard');
+    expect(text).not.toContain("Insights from each PR's latest completed analysis.");
+    expect(fixture.nativeElement.querySelector('[aria-label="How Dashboard metrics are calculated"]')).not.toBeNull();
     expect(text).not.toContain('Health Score');
     expect(text).not.toContain('Tech Debt Score');
     expect(text).not.toContain('Critical Issues');
@@ -82,7 +113,7 @@ describe('Dashboard', () => {
     expect(fixture.nativeElement.textContent).toContain('Could not load dashboard statistics');
     expect(fixture.nativeElement.textContent).not.toContain('backend detail');
     fixture.nativeElement.querySelector('button').click();
-    http.expectOne(url).flush(data);
+    http.expectOne(url).flush(structuredClone(data));
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Current SATD Findings');
   });
@@ -96,8 +127,8 @@ describe('Dashboard', () => {
       severityDistribution: { '1': 1, '2': 1, '3': 1, '4': 1, '5': 1, NOT_ASSESSED: 2 }
     });
     fixture.detectChanges();
-    const categoryText = fixture.nativeElement.querySelector('#category-heading').parentElement.textContent as string;
-    const severityText = fixture.nativeElement.querySelector('#severity-heading').parentElement.textContent as string;
+    const categoryText = fixture.nativeElement.querySelector('#category-heading').closest('section').textContent as string;
+    const severityText = fixture.nativeElement.querySelector('#severity-heading').closest('section').textContent as string;
     expect(categoryText).toMatch(/Unclassified\s*7/);
     expect(categoryText).toMatch(/Not Assessed\s*0/);
     for (let score = 1; score <= 5; score++) expect(severityText).toMatch(new RegExp(`Severity ${score}\\s*1`));
@@ -107,7 +138,7 @@ describe('Dashboard', () => {
   it('makes all four summary cards real drill-down links', () => {
     const fixture = TestBed.createComponent(Dashboard);
     fixture.detectChanges();
-    http.expectOne(url).flush(data);
+    http.expectOne(url).flush(structuredClone(data));
     fixture.detectChanges();
     const paths = Array.from(fixture.nativeElement.querySelectorAll('app-stats-card a') as NodeListOf<HTMLAnchorElement>)
       .map(link => new URL(link.href).pathname);

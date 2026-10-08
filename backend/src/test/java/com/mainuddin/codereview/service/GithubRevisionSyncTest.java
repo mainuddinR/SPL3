@@ -5,6 +5,7 @@ import com.mainuddin.codereview.dto.GithubFileDTO;
 import com.mainuddin.codereview.dto.GithubPullRequestDTO;
 import com.mainuddin.codereview.entity.GithubProject;
 import com.mainuddin.codereview.entity.PullRequest;
+import com.mainuddin.codereview.entity.User;
 import com.mainuddin.codereview.repository.GithubProjectRepository;
 import com.mainuddin.codereview.repository.PullRequestRepository;
 import com.mainuddin.codereview.repository.UserRepository;
@@ -13,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import java.util.List;
 
@@ -31,6 +34,9 @@ class GithubRevisionSyncTest {
     private PullRequestRepository prs;
     private GithubProjectRepository projects;
     private GithubService service;
+    private NotificationService notifications;
+    private GithubPullRequestClient pullRequestClient;
+    private GithubProject project;
 
     @BeforeEach
     void setup() {
@@ -38,12 +44,17 @@ class GithubRevisionSyncTest {
         prs = mock(PullRequestRepository.class);
         projects = mock(GithubProjectRepository.class);
         fileSnapshots = mock(PullRequestFileSnapshotService.class);
-        GithubProject project = GithubProject.builder().githubRepoId(5L).ownerLogin("owner").name("repo").build();
+        project = GithubProject.builder().id(5L).githubRepoId(5L).ownerLogin("owner").name("repo")
+                .user(User.builder().githubId("owner-id").build()).build();
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("owner-id", null));
+        notifications = mock(NotificationService.class);
+        pullRequestClient = mock(GithubPullRequestClient.class);
         PullRequest pr = PullRequest.builder().id(19L).number(7).githubProject(project).build();
         when(prs.findWithProjectById(19L)).thenReturn(java.util.Optional.of(pr));
         when(projects.findById(5L)).thenReturn(java.util.Optional.of(project));
+        when(projects.lockById(5L)).thenReturn(java.util.Optional.of(project));
         service = new GithubService(restTemplate, projects, mock(UserRepository.class),
-                prs, fileSnapshots, mock(PullRequestCommentSnapshotService.class));
+                prs, fileSnapshots, mock(PullRequestCommentSnapshotService.class), notifications, pullRequestClient);
     }
 
     private void revision(String head, String base) {
@@ -73,13 +84,12 @@ class GithubRevisionSyncTest {
 
     @Test
     void prListSyncStoresCurrentHeadAndBaseWithoutChangingFileSnapshot() {
-        String url = "https://api.github.com/repos/owner/repo/pulls?state=all&per_page=100";
-        server.expect(requestTo(url)).andRespond(withSuccess(
-                "[{\"id\":77,\"number\":7,\"title\":\"PR\",\"state\":\"open\"," +
-                "\"head\":{\"sha\":\"new-head\"},\"base\":{\"sha\":\"new-base\"}}]", MediaType.APPLICATION_JSON));
+        when(pullRequestClient.fetch("owner-id", project)).thenReturn(List.of(prDto(
+                "{\"id\":77,\"number\":7,\"title\":\"PR\",\"state\":\"open\"," +
+                "\"head\":{\"sha\":\"new-head\"},\"base\":{\"sha\":\"new-base\"}}")));
         PullRequest stored = PullRequest.builder().syncedFilesHeadSha("old-files-head")
                 .syncedFilesBaseSha("old-files-base").build();
-        when(prs.findByGithubPrId(77L)).thenReturn(java.util.Optional.of(stored));
+        when(prs.findByGithubPrIdAndGithubProjectId(77L, 5L)).thenReturn(java.util.Optional.of(stored));
         service.fetchAndStorePullRequests(5L);
         assertEquals("new-head", stored.getHeadSha());
         assertEquals("new-base", stored.getBaseSha());
@@ -87,6 +97,32 @@ class GithubRevisionSyncTest {
         assertEquals("old-files-base", stored.getSyncedFilesBaseSha());
         verify(prs).save(stored);
         server.verify();
+    }
+
+    @Test
+    void newlyDiscoveredPrNotifiesStoredOwnerOnceAcrossRepeatedSync() {
+        when(pullRequestClient.fetch("owner-id", project)).thenReturn(List.of(prDto(
+                "{\"id\":77,\"number\":7,\"title\":\"New PR\",\"state\":\"open\"}")));
+        when(prs.findByGithubPrIdAndGithubProjectId(77L, 5L)).thenReturn(java.util.Optional.empty())
+                .thenReturn(java.util.Optional.of(PullRequest.builder().githubPrId(77L).build()));
+        when(prs.save(any(PullRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        service.fetchAndStorePullRequests(5L);
+        service.fetchAndStorePullRequests(5L, "owner-id");
+        verify(notifications, times(1)).newPullRequest(any(GithubProject.class), any(PullRequest.class));
+        server.verify();
+    }
+
+    private GithubPullRequestDTO prDto(String json) {
+        try { return new ObjectMapper().readValue(json, GithubPullRequestDTO.class); }
+        catch (Exception ex) { throw new AssertionError(ex); }
+    }
+
+    @Test
+    void anotherUserCannotSyncOwnersRepositoryOrCreateNotification() {
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("other-id", null));
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> service.fetchAndStorePullRequests(5L));
+        verifyNoInteractions(notifications);
     }
 
     @Test

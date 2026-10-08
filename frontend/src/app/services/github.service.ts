@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { GithubBranch, GithubRepo, RepositoryPage } from '../models/github.model';
+import { GithubBranch, GithubRepo, RepositoryPage, GithubUserSearchPage } from '../models/github.model';
 
 @Injectable({
   providedIn: 'root'
@@ -9,6 +9,9 @@ import { GithubBranch, GithubRepo, RepositoryPage } from '../models/github.model
 export class GithubService {
   private http = inject(HttpClient);
   private apiUrl = 'http://localhost:8080/api/github';
+  storedProjects(): Observable<{ id: number; githubRepoId: number; fullName: string }[]> {
+    return this.http.get<{ id: number; githubRepoId: number; fullName: string }[]>('http://localhost:8080/api/projects');
+  }
 
   myRepositories(page: number = 1): Observable<RepositoryPage> {
     return this.http.get<RepositoryPage>(`${this.apiUrl}/repositories/me`, { params: { page } });
@@ -16,6 +19,14 @@ export class GithubService {
 
   userRepositories(username: string, page: number = 1): Observable<RepositoryPage> {
     return this.http.get<RepositoryPage>(`${this.apiUrl}/users/${encodeURIComponent(username)}/repositories`, { params: { page } });
+  }
+
+  searchUsers(query: string, page: number = 1): Observable<GithubUserSearchPage> {
+    return this.http.get<GithubUserSearchPage>(`${this.apiUrl}/users/search`, { params: { q: query, page } });
+  }
+
+  searchRepositories(query: string, page: number = 1): Observable<RepositoryPage> {
+    return this.http.get<RepositoryPage>(`${this.apiUrl}/repositories/search`, { params: { q: query, page } });
   }
 
   exactRepository(owner: string, repo: string): Observable<GithubRepo> {

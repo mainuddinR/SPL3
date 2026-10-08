@@ -1,9 +1,9 @@
 package com.mainuddin.codereview.service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.mainuddin.codereview.security.GithubAuthorizedClientService;
 import org.springframework.http.*;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
@@ -14,9 +14,9 @@ import java.util.List;
 @Service
 public class GitHubReviewClient {
     private final RestTemplate http;
-    private final OAuth2AuthorizedClientService authorizedClients;
+    private final GithubAuthorizedClientService authorizedClients;
 
-    public GitHubReviewClient(RestTemplate http, OAuth2AuthorizedClientService authorizedClients) {
+    public GitHubReviewClient(RestTemplate http, GithubAuthorizedClientService authorizedClients) {
         this.http = http;
         this.authorizedClients = authorizedClients;
     }
@@ -40,8 +40,8 @@ public class GitHubReviewClient {
     }
 
     private <T> T exchange(String githubId, String url, HttpMethod method, Object body, Class<T> type) {
-        OAuth2AuthorizedClient client = authorizedClients.loadAuthorizedClient("github", githubId);
-        if (client == null || client.getAccessToken() == null) {
+        OAuth2AuthorizedClient client = authorizedClients.loadValidForGithubId(githubId);
+        if (client == null) {
             throw new ReviewPublishException(HttpStatus.UNAUTHORIZED, "GitHub authorization is unavailable. Sign in with GitHub again.");
         }
         HttpHeaders headers = new HttpHeaders();

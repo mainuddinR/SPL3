@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, computed, inject, signal, OnInit, OnDestroy, afterNextRender, Injector } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -8,11 +8,12 @@ import { DiffRow, findSatdLocation, isSatdRow, parseUnifiedDiff } from './unifie
 import { SettingsApiService } from '../../../services/settings-api.service';
 import { UiCapability } from '../../../models/settings.model';
 import { primarySuggestionSections, suggestionReviewNote } from './saved-suggestion';
+import { PrDesignConformance } from './pr-design-conformance';
 
 @Component({
   selector: 'app-pull-request-details',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, PrDesignConformance],
   templateUrl: './pull-request-details.html'
 })
 export class PullRequestDetails implements OnInit, OnDestroy {
@@ -66,7 +67,16 @@ export class PullRequestDetails implements OnInit, OnDestroy {
   syncing = signal<boolean>(false);
   error = signal<string | null>(null);
   
-  selectedTab = signal<'overview' | 'files' | 'comments' | 'history'>('overview');
+  private injector = inject(Injector);
+  openDesignCheck() {
+    this.selectedTab.set('design');
+    afterNextRender(() => {
+      const area = document.getElementById('pr-design-area');
+      area?.scrollIntoView({ behavior: document.documentElement.classList.contains('motion-reduced') || window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+      area?.focus({ preventScroll: true });
+    }, { injector: this.injector });
+  }
+  selectedTab = signal<'overview' | 'files' | 'comments' | 'history' | 'design'>('overview');
   selectedFile = signal<PullRequestFile | null>(null);
   diffRows = computed(() => parseUnifiedDiff(this.selectedFile()?.patch));
 
@@ -83,7 +93,7 @@ export class PullRequestDetails implements OnInit, OnDestroy {
         this.prId.set(id);
         this.resetHistory();
         const requestedTab = this.route.snapshot.queryParamMap.get('tab');
-        if (requestedTab === 'history' || requestedTab === 'files') this.selectedTab.set(requestedTab);
+        if (requestedTab === 'history' || requestedTab === 'files' || requestedTab === 'design') this.selectedTab.set(requestedTab);
         this.loadDetails(id);
         this.loadHistory(id);
         this.resumeProgress(id);
