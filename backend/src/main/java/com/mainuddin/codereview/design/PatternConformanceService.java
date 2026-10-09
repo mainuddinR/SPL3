@@ -59,10 +59,10 @@ public class PatternConformanceService {
                 || !pr.getHeadSha().equals(pr.getSyncedFilesHeadSha())
                 || !pr.getBaseSha().equals(pr.getSyncedFilesBaseSha()))
             throw new ResponseStatusException(HttpStatus.PRECONDITION_REQUIRED, "Sync PR details for this revision before checking design conformance.");
-        RepositoryPatternProfile profile = profiles.latestCompleted(pr.getGithubProject().getId());
+        RepositoryPatternProfile profile = profiles.exactBase(pr.getGithubProject().getId(), githubId, pr.getBaseSha());
         PrPatternCheck check = new PrPatternCheck();
         check.setPullRequest(pr); check.setProfile(profile); check.setStatus("RUNNING");
-        check.setProgress("Loading changed Java files..."); check.setCheckedAt(LocalDateTime.now());
+        check.setProgress("Preparing exact PR base design profile..."); check.setCheckedAt(LocalDateTime.now());
         check.setCheckedHeadSha(pr.getHeadSha()); check.setCheckedBaseSha(pr.getBaseSha());
         check = checks.save(check);
         Long checkId = check.getId();
@@ -96,6 +96,7 @@ public class PatternConformanceService {
     private void run(Long checkId, PullRequest pr, RepositoryPatternProfile profile,
             List<PullRequestFile> files, String githubId) {
         try {
+            profile = profiles.awaitExactBase(profile.getId());
             List<PatternCandidate> baseline = new ArrayList<>();
             for (var occurrence : occurrences.findByProfileIdOrderByIdAsc(profile.getId())) {
                 List<PatternCandidate.Evidence> evidence = json.readValue(occurrence.getEvidenceJson(), new TypeReference<>() {});
@@ -113,7 +114,10 @@ public class PatternConformanceService {
             }
             PrPatternCheck check = checks.findById(checkId).orElseThrow();
             check.setFindingsJson(json.writeValueAsString(findings));
-            check.setStatus("COMPLETED"); check.setProgress("Completed"); checks.save(check);
+            check.setStatus("COMPLETED"); check.setProgress("Completed|JAVA_FILES=" + files.stream()
+                    .filter(f -> RepositorySourceSnapshotService.allowedJavaPath(f.getFilename())).count()); checks.save(check);
+        } catch (DesignSourceException failure) {
+            fail(checkId, failure.getReason());
         } catch (ResponseStatusException failure) {
             String message = switch (failure.getStatusCode().value()) {
                 case 401 -> "Reconnect GitHub, then run Pattern Check again.";
@@ -161,9 +165,12 @@ public class PatternConformanceService {
                     "The saved repository profile does not match this check's PR base revision.",
                     "Analyze the matching baseline before interpreting conformance.", List.of()));
         }
+        Integer changedCount = check.getProgress() != null && check.getProgress().matches("Completed\\|JAVA_FILES=\\d+")
+                ? Integer.valueOf(check.getProgress().substring("Completed|JAVA_FILES=".length())) : null;
         return new PatternConformanceDTO(check.getId(), check.getPullRequest().getId(), check.getProfile().getId(),
-                check.getStatus(), check.getProgress(), check.getFailureMessage(), check.getCheckedHeadSha(),
-                check.getCheckedBaseSha(), check.getCheckedAt(), findings);
+                check.getStatus(), "COMPLETED".equals(check.getStatus()) ? "Completed" : check.getProgress(), check.getFailureMessage(), check.getCheckedHeadSha(),
+                check.getCheckedBaseSha(), check.getCheckedAt(), findings,
+                "COMPLETED".equals(check.getStatus()) ? PatternConformanceDTO.Summary.from(findings) : null, changedCount);
     }
 
     @PreDestroy void shutdown() { executor.shutdownNow(); }

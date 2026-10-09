@@ -12,6 +12,10 @@ import java.util.stream.Collectors;
 public class PatternConformanceEvaluator {
     public List<PatternConformanceDTO.Finding> evaluate(List<PatternCandidate> baseline,
             JavaTypeIndex changed, List<PullRequestFile> files, boolean baselineMatchesBase) {
+        return evaluateCandidates(baseline, changed, null, files, baselineMatchesBase);
+    }
+    private List<PatternConformanceDTO.Finding> evaluateCandidates(List<PatternCandidate> baseline,
+            JavaTypeIndex changed, JavaTypeIndex base, List<PullRequestFile> files, boolean baselineMatchesBase) {
         Set<String> changedPaths = files.stream().map(PullRequestFile::getFilename)
                 .filter(path -> path != null && path.endsWith(".java")).collect(Collectors.toSet());
         List<PatternConformanceDTO.Finding> results = new ArrayList<>();
@@ -20,7 +24,7 @@ public class PatternConformanceEvaluator {
                 "The saved repository profile does not match the PR base revision.", "Analyze the matching baseline before interpreting conformance.", List.of()));
         for (PatternCandidate occurrence : baseline) {
             results.add(switch (occurrence.patternType()) {
-                case "STRATEGY" -> strategy(occurrence, changed, files, changedPaths);
+                case "STRATEGY" -> strategy(occurrence, changed, base, files, changedPaths);
                 case "CONTROLLER_SERVICE_REPOSITORY" -> layering(occurrence, changed, changedPaths);
                 case "FACTORY_METHOD" -> factory(occurrence, changed, changedPaths);
                 default -> general(occurrence, changedPaths);
@@ -36,9 +40,18 @@ public class PatternConformanceEvaluator {
 
     public List<PatternConformanceDTO.Finding> evaluate(List<PatternCandidate> baseline, JavaTypeIndex head,
             JavaTypeIndex base, List<PullRequestFile> files, boolean baselineMatchesBase) {
-        var results = evaluate(baseline, head, files, baselineMatchesBase);
+        var results = evaluateCandidates(baseline, head, base, files, baselineMatchesBase);
         if (!baselineMatchesBase) return results;
         return results.stream().map(result -> {
+            if ("INSUFFICIENT_EVIDENCE".equals(result.status()) && result.file() != null) {
+                var pattern = baseline.stream().filter(p -> p.patternType().equals(result.patternType())
+                        && p.evidence().equals(result.evidence())).findFirst();
+                if (pattern.isPresent() && JavaDesignChangeImpact.sameRelevantStructure(pattern.get(), head, base, result.file()))
+                    return new PatternConformanceDTO.Finding(result.patternType(), result.patternFamily(), "NOT_APPLICABLE",
+                            result.confidence(), result.file(), result.line(), result.className(),
+                            "The changed file preserves its declarations, dependencies and design-related calls. No applicable structural design change was detected.",
+                            null, result.evidence());
+            }
             if (!"POTENTIAL_DEVIATION".equals(result.status())) return result;
             PullRequestFile file = files.stream().filter(f -> java.util.Objects.equals(f.getFilename(), result.file())).findFirst().orElse(null);
             if (file != null && "added".equalsIgnoreCase(file.getStatus())) return result;
@@ -51,30 +64,40 @@ public class PatternConformanceEvaluator {
                         .filter(e -> e.role().equals("ConcreteProduct")).anyMatch(e -> matches(oldType.get(), expr.getType().asString(), e.className())));
                 case "STRATEGY" -> {
                     var newType = head.types().stream().filter(t -> t.qualifiedName().equals(result.className()) && t.path().equals(result.file())).findFirst();
-                    Set<String> oldBranches = providerBranches(oldType.get());
-                    yield newType.isPresent() && oldBranches.containsAll(providerBranches(newType.get()));
+                    var pattern = baseline.stream().filter(p -> p.patternType().equals(result.patternType()) && p.evidence().equals(result.evidence())).findFirst().orElseThrow();
+                    Set<String> oldBranches = providerBranches(oldType.get(), pattern, base);
+                    yield newType.isPresent() && oldBranches.containsAll(providerBranches(newType.get(), pattern, head));
                 }
                 default -> false;
             };
-            return existing ? uncertain(result, "This structure already existed at the PR base; the available change does not establish a new deviation.") : result;
+            return existing ? new PatternConformanceDTO.Finding(result.patternType(), result.patternFamily(), "NOT_APPLICABLE",
+                    result.confidence(), result.file(), result.line(), result.className(),
+                    "This structure already existed at the PR base; this PR does not introduce the reported design concern.", null, result.evidence()) : result;
         }).toList();
     }
-    private Set<String> providerBranches(JavaTypeIndex.Type type) {
+    private Set<String> providerBranches(JavaTypeIndex.Type type, PatternCandidate pattern, JavaTypeIndex index) {
         Set<String> branches = new java.util.HashSet<>();
         type.ast().findAll(com.github.javaparser.ast.stmt.IfStmt.class).stream()
                 .filter(b -> !b.getCondition().findAll(com.github.javaparser.ast.expr.StringLiteralExpr.class).isEmpty())
-                .forEach(b -> branches.add(b.getCondition().toString().replaceAll("\\s+", "")));
+                .filter(b -> concreteStrategyAction(b.getThenStmt(), type, pattern, index))
+                .forEach(b -> branches.add(b.getCondition().toString().replaceAll("\\s+", "") + ":" + actionSignature(b.getThenStmt(), type, pattern, index)));
         type.ast().findAll(com.github.javaparser.ast.stmt.SwitchStmt.class).stream()
                 .filter(b -> b.getEntries().stream().anyMatch(e -> e.getLabels().stream().anyMatch(l -> l.isStringLiteralExpr())))
-                .forEach(b -> branches.add(b.getSelector().toString() + b.getEntries().stream().flatMap(e -> e.getLabels().stream()).map(Object::toString).sorted().toList()));
+                .filter(b -> concreteStrategyAction(b, type, pattern, index))
+                .forEach(b -> branches.add(b.getSelector().toString() + b.getEntries().stream().flatMap(e -> e.getLabels().stream()).map(Object::toString).sorted().toList() + ":" + actionSignature(b, type, pattern, index)));
         return branches;
+    }
+    private String actionSignature(com.github.javaparser.ast.Node body, JavaTypeIndex.Type owner, PatternCandidate pattern, JavaTypeIndex index) {
+        return body.findAll(com.github.javaparser.ast.expr.ObjectCreationExpr.class).stream().filter(c -> concreteStrategyAction(c, owner, pattern, index)).map(c -> c.getType().asString()).sorted().toList()
+                + ":" + body.findAll(com.github.javaparser.ast.expr.MethodCallExpr.class).stream()
+                .filter(c -> concreteStrategyAction(c, owner, pattern, index)).map(c -> c.getScope().map(Object::toString).orElse("") + "." + c.getNameAsString()).sorted().toList();
     }
     private PatternConformanceDTO.Finding uncertain(PatternConformanceDTO.Finding f, String rationale) {
         return new PatternConformanceDTO.Finding(f.patternType(), f.patternFamily(), "INSUFFICIENT_EVIDENCE", f.confidence(),
                 f.file(), f.line(), f.className(), rationale, null, f.evidence());
     }
 
-    private PatternConformanceDTO.Finding strategy(PatternCandidate occurrence, JavaTypeIndex changed,
+    private PatternConformanceDTO.Finding strategy(PatternCandidate occurrence, JavaTypeIndex changed, JavaTypeIndex base,
             List<PullRequestFile> files, Set<String> paths) {
         var abstractions = occurrence.evidence().stream().filter(item -> item.role().equals("Strategy")).toList();
         for (var context : occurrence.evidence().stream().filter(item -> item.role().equals("Context")).toList()) {
@@ -85,16 +108,24 @@ public class PatternConformanceEvaluator {
             boolean newProviderBranch = changedContext.isPresent() && patch != null && changedContext.get().ast()
                     .findAll(com.github.javaparser.ast.stmt.IfStmt.class).stream().anyMatch(branch ->
                         !branch.getCondition().findAll(com.github.javaparser.ast.expr.StringLiteralExpr.class).isEmpty()
+                        && concreteStrategyAction(branch.getThenStmt(), changedContext.get(), occurrence, changed)
                         && patch.lines().anyMatch(line -> line.startsWith("+") && !line.startsWith("+++")
                             && line.replaceAll("\\s+", "").contains(branch.getCondition().toString().replaceAll("\\s+", ""))))
                     || changedContext.isPresent() && patch != null && changedContext.get().ast()
                         .findAll(com.github.javaparser.ast.stmt.SwitchStmt.class).stream().anyMatch(branch ->
                             branch.getEntries().stream().anyMatch(entry -> entry.getLabels().stream().anyMatch(label -> label.isStringLiteralExpr()))
+                            && concreteStrategyAction(branch, changedContext.get(), occurrence, changed)
                             && patch.lines().anyMatch(line -> line.startsWith("+") && line.contains("switch")
                                 && line.contains(branch.getSelector().toString())));
+            if (base != null && changedContext.isPresent()) {
+                var prior = base.types().stream().filter(t -> t.qualifiedName().equals(context.className()) && t.path().equals(context.sourcePath())).findFirst();
+                var headBranches = providerBranches(changedContext.get(), occurrence, changed);
+                newProviderBranch = !headBranches.isEmpty() && (prior.isEmpty()
+                        || !providerBranches(prior.get(), occurrence, base).containsAll(headBranches));
+            }
             if (newProviderBranch)
-                return finding(occurrence, "POTENTIAL_DEVIATION", context.sourcePath(), null, context.className(),
-                        "The Strategy context gained a conditional branch with a literal; review whether it selects provider-specific behavior directly.",
+                return finding(occurrence, "POTENTIAL_DEVIATION", context.sourcePath(), changedContext.get().line(), context.className(),
+                        "The Strategy context gained a literal-based branch that directly selects a concrete strategy instead of using the established abstraction.",
                         abstractions.isEmpty() ? "Review whether this branch bypasses an established abstraction." : "Consider a new implementation of " + simple(abstractions.getFirst().className()) + " if this branch selects behavior.");
 
         }
@@ -105,6 +136,22 @@ public class PatternConformanceEvaluator {
         }
         if (occurrence.evidence().stream().anyMatch(e -> paths.contains(e.sourcePath()))) return general(occurrence, paths);
         return irrelevant(occurrence);
+    }
+
+    private boolean concreteStrategyAction(com.github.javaparser.ast.Node branch, JavaTypeIndex.Type owner,
+            PatternCandidate pattern, JavaTypeIndex changed) {
+        List<String> concrete = new ArrayList<>(pattern.evidence().stream().filter(e -> e.role().equals("ConcreteStrategy"))
+                .map(PatternCandidate.Evidence::className).toList());
+        changed.types().stream().filter(t -> pattern.evidence().stream().filter(e -> e.role().equals("Strategy"))
+                .anyMatch(e -> java.util.stream.Stream.concat(t.extendsTypes().stream(), t.implementsTypes().stream())
+                        .anyMatch(ref -> matches(t, ref, e.className())))).map(JavaTypeIndex.Type::qualifiedName).forEach(concrete::add);
+        if (branch.findAll(com.github.javaparser.ast.expr.ObjectCreationExpr.class).stream()
+                .anyMatch(c -> concrete.stream().anyMatch(target -> matches(owner, c.getType().asString(), target)))) return true;
+        Set<String> concreteFields = owner.ast().getFields().stream().flatMap(f -> f.getVariables().stream())
+                .filter(v -> concrete.stream().anyMatch(target -> matches(owner, v.getType().asString(), target)))
+                .map(v -> v.getNameAsString()).collect(Collectors.toSet());
+        return branch.findAll(com.github.javaparser.ast.expr.MethodCallExpr.class).stream()
+                .anyMatch(c -> c.getScope().map(Object::toString).map(scope -> concreteFields.contains(scope.replaceFirst("^this\\.", ""))).orElse(false));
     }
 
     private PatternConformanceDTO.Finding layering(PatternCandidate occurrence, JavaTypeIndex changed, Set<String> paths) {
@@ -177,8 +224,17 @@ public class PatternConformanceEvaluator {
 
     private PatternConformanceDTO.Finding finding(PatternCandidate occurrence, String status, String file,
             Integer line, String className, String rationale, String recommendation) {
+        String impact = !"POTENTIAL_DEVIATION".equals(status) ? null : switch (occurrence.patternType()) {
+            case "STRATEGY" -> "Provider selection inside a context can couple behavior extensions to context edits and duplicate existing strategy responsibilities.";
+            case "CONTROLLER_SERVICE_REPOSITORY" -> "A controller-to-repository dependency can bypass service coordination and couple the HTTP boundary to persistence details.";
+            case "FACTORY_METHOD" -> "Direct concrete-product construction can couple the caller to implementation choices handled by the established factory.";
+            default -> null;
+        };
+        String priority = impact == null ? null : "CONTROLLER_SERVICE_REPOSITORY".equals(occurrence.patternType())
+                && "HIGH".equals(occurrence.confidence()) ? "HIGH" : "MEDIUM";
         return new PatternConformanceDTO.Finding(occurrence.patternType(), occurrence.patternFamily(), status,
-                occurrence.confidence(), file, line, className, rationale, recommendation, occurrence.evidence());
+                occurrence.confidence(), file, line, className, rationale, recommendation, occurrence.evidence(),
+                "POTENTIAL_DEVIATION".equals(status) ? rationale : null, impact, priority, null);
     }
 
     private String simple(String qualified) {

@@ -16,6 +16,7 @@ export class Settings implements OnInit {
   monitorStatus = signal<GithubMonitorStatus | null>(null);
   loading = signal(true);
   error = signal(false);
+  lastChecked = signal<Date | null>(null);
 
   ngOnInit() { this.refresh(); }
   refresh() {
@@ -25,7 +26,7 @@ export class Settings implements OnInit {
       error: () => this.monitorStatus.set(null)
     });
     this.api.status().subscribe({
-      next: value => { this.status.set(value); this.loading.set(false); },
+      next: value => { this.status.set(value); this.lastChecked.set(new Date()); this.loading.set(false); },
       error: () => { this.error.set(true); this.loading.set(false); }
     });
   }
@@ -35,6 +36,8 @@ export class Settings implements OnInit {
   changeSidebar(event: Event) { this.preferences.setSidebar((event.target as HTMLSelectElement).value as 'expanded' | 'compact'); }
   changeMotion(event: Event) { this.preferences.setMotion((event.target as HTMLSelectElement).value as 'normal' | 'reduced'); }
   changeEffects(event: Event) { this.preferences.setEffects((event.target as HTMLSelectElement).value as 'standard' | 'reduced'); }
+  changeNotificationView(event: Event) { this.preferences.setNotificationDefaultView((event.target as HTMLSelectElement).value as 'all' | 'unread'); }
+  changeNotificationAutoRefresh(event: Event) { this.preferences.setNotificationAutoRefresh((event.target as HTMLInputElement).checked); }
   reset() { this.preferences.reset(); }
   signOut() { this.auth.logout(); this.router.navigateByUrl('/login'); }
 }

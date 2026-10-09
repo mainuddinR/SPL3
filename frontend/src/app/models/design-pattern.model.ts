@@ -56,6 +56,10 @@ export interface PatternProfile {
 }
 
 export interface PatternConformanceFinding {
+  structuralChange?: string | null;
+  designImpact?: string | null;
+  reviewPriority?: 'HIGH' | 'MEDIUM' | 'LOW' | null;
+  aiSuggestion?: DesignAdvice | null;
   patternType: string;
   patternFamily: PatternFamily;
   status: PatternConformanceStatus;
@@ -69,6 +73,7 @@ export interface PatternConformanceFinding {
 }
 
 export interface PatternConformance {
+  changedJavaFileCount?: number | null;
   summary?: { overallStatus: PatternConformanceStatus; conforms: number; potentialDeviations: number;
     notApplicable: number; insufficientEvidence: number } | null;
   id: number;
@@ -81,4 +86,13 @@ export interface PatternConformance {
   checkedBaseSha: string | null;
   checkedAt: string;
   findings: PatternConformanceFinding[];
+}
+
+export interface DesignAdvice {
+  summary: string; risk: string; recommendation: string; verification: string; limitations: string;
+  generatedAt: string; providerModel: string; promptVersion: string;
+}
+export interface DesignAdviceResponse {
+  status: 'AVAILABLE' | 'UNAVAILABLE'; advice: DesignAdvice | null;
+  message: string | null; retryAfterSeconds: number | null;
 }

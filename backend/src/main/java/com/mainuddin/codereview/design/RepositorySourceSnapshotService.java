@@ -60,6 +60,13 @@ public class RepositorySourceSnapshotService {
     public record Snapshot(String sha, String defaultBranch, Map<String, String> sources) {}
     private record Blob(String path, String sha, int size) {}
 
+    public Head exactCommit(GithubProject project, String githubId, String sha) {
+        if (!validSha(sha)) throw unavailable();
+        JsonNode commit = get(project, githubId, "/commits/" + sha);
+        if (!sha.equalsIgnoreCase(commit.path("sha").asText())) throw unavailable();
+        return new Head(sha.toLowerCase(java.util.Locale.ROOT), null);
+    }
+
     public Head currentHead(GithubProject project, String githubId) {
         JsonNode metadata = get(project, githubId, "");
         String branch = metadata.path("default_branch").asText("");
@@ -115,12 +122,15 @@ public class RepositorySourceSnapshotService {
         if (files.size() > 50) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "Too many changed files for one design-conformance check.");
         Map<String, String> sources = new LinkedHashMap<>();
+        int total = 0;
         for (PullRequestFile file : files) {
-            if (!allowedJavaPath(file.getFilename()) || !validSha(file.getSha())
-                    || "removed".equalsIgnoreCase(file.getStatus())) continue;
+            if (!allowedJavaPath(file.getFilename()) || "removed".equalsIgnoreCase(file.getStatus())) continue;
+            if (!validSha(file.getSha())) throw new DesignSourceException("SOURCE_BLOB_INVALID", "A changed Java file has no verified source blob.", null, null);
             String source = source(project, githubId, file.getSha());
             if (source == null) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "A changed Java source blob could not be decoded for design conformance.");
+            total += source.getBytes(StandardCharsets.UTF_8).length;
+            if (total > MAX_TOTAL_BYTES) throw new DesignSourceException("TOTAL_SOURCE_TOO_LARGE", "Changed Java source exceeds the safe analysis size limit.", (long) total, (long) MAX_TOTAL_BYTES);
             sources.put(file.getFilename(), source);
         }
         return Map.copyOf(sources);
@@ -209,7 +219,7 @@ public class RepositorySourceSnapshotService {
     }
 
     private static boolean validSha(String sha) { return sha != null && sha.matches("[0-9a-fA-F]{40}"); }
-    private static boolean allowedJavaPath(String path) {
+    static boolean allowedJavaPath(String path) {
         if (path == null || path.startsWith("/") || path.contains("\\") || !path.endsWith(".java")) return false;
         if (path.contains("/test/") || path.startsWith("test/") || path.contains("/tests/") || path.startsWith("tests/")) return false;
         for (String part : path.split("/")) {

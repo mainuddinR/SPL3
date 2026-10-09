@@ -1,35 +1,51 @@
-<section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-labelledby="design-conformance-heading">
+<section class="design-review-shell rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-labelledby="design-conformance-heading">
   <div class="flex flex-wrap items-start justify-between gap-3">
     <div>
-      <div class="flex items-center gap-2"><h2 id="design-conformance-heading" class="text-xl font-bold">Design Conformance</h2><app-info-popover label="About design conformance">Compares changed Java code with a saved repository design profile. Findings are structural review cues, not definite design violations.</app-info-popover></div>
+      <div class="flex items-center gap-2"><h2 id="design-conformance-heading" class="text-xl font-bold">Design Review</h2><app-info-popover label="About design conformance">Compares changed Java code with the repository's design patterns at the PR's exact base commit. Results highlight supported design concerns, not guaranteed defects.</app-info-popover></div>
     </div>
-    <button type="button" (click)="run()" [disabled]="starting() || check()?.status === 'RUNNING' || profile()?.status !== 'COMPLETED'"
+    <button type="button" (click)="run()" [disabled]="starting() || check()?.status === 'RUNNING'"
             class="design-action disabled:opacity-50">
       {{ check() ? 'Run Pattern Check Again' : 'Run Pattern Check' }}
     </button>
   </div>
   <p *ngIf="loading()" role="status" class="mt-4 text-sm text-gray-600">Loading repository design profile...</p>
   <p *ngIf="error()" role="alert" class="mt-4 text-sm text-red-700">{{ error() }}</p>
-  <div *ngIf="!loading() && profile()?.status !== 'COMPLETED' && profile()?.projectId" class="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-    No completed repository design profile is available.
-    <a [routerLink]="['/dashboard/projects', profile()?.projectId, 'design-patterns']" class="ml-1 font-semibold underline">Analyze Repository Design First</a>
-  </div>
-  <p *ngIf="!loading() && !profile() && !error()" class="mt-4 text-sm text-gray-600">No repository design profile exists yet. Open the repository's Design Patterns page to analyze it first.</p>
-  <p *ngIf="profile()?.status === 'COMPLETED'" class="mt-4 text-xs text-gray-500">Available profile at commit <code>{{ profile()?.analyzedCommitSha | slice:0:7 }}</code>. New checks use this profile; saved checks retain their own baseline and PR revision.</p>
-  <p *ngIf="!check() && profile()?.status === 'COMPLETED'" class="mt-4 text-sm text-gray-600">Pattern Check has not been run for this PR. Sync Details first, then run the check.</p>
+  <p *ngIf="!check()" class="mt-3 text-sm text-gray-600">No design check yet. Sync PR details if needed, then select Run Pattern Check.</p>
   <p *ngIf="check()?.status === 'RUNNING'" role="status" class="mt-4 text-sm text-blue-700">{{ check()?.progress }}</p>
   <p *ngIf="check()?.status === 'FAILED'" role="alert" class="mt-4 text-sm text-red-700">{{ check()?.failureMessage || 'Pattern Check failed.' }}</p>
   <ng-container *ngIf="check()?.status === 'COMPLETED'">
-    <article class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-5" aria-label="Overall design status"><p class="text-xs font-medium text-gray-500">Overall</p><div class="mt-2"><app-design-badge [value]="overallStatus()" /></div><div class="mt-3 flex flex-wrap gap-3 text-sm" aria-label="Design conformance counts">
-      <span>Conforms: <strong>{{ count('CONFORMS') }}</strong></span>
-      <span>Potential deviations: <strong>{{ count('POTENTIAL_DEVIATION') }}</strong></span>
-      <span>Not applicable: <strong>{{ count('NOT_APPLICABLE') }}</strong></span>
-      <span>Insufficient evidence: <strong>{{ count('INSUFFICIENT_EVIDENCE') }}</strong></span>
-    </div><p class="mt-3 text-xs text-gray-500">Saved profile #{{ check()?.profileId }} · PR base <code>{{ check()?.checkedBaseSha | slice:0:7 }}</code> · PR head <code>{{ check()?.checkedHeadSha | slice:0:7 }}</code><span *ngIf="check()?.checkedAt"> · {{ check()?.checkedAt | date:'medium' }}</span></p></article>
-    <article *ngIf="baselineMismatch()" class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4" aria-label="Baseline mismatch"><h3 class="font-semibold">Baseline mismatch</h3><p class="mt-2 text-sm text-gray-600">The saved design profile was created from a different repository revision.</p><p class="mt-2 text-xs text-gray-500">Saved check profile #{{ check()?.profileId }}; PR base <code>{{ check()?.checkedBaseSha | slice:0:7 }}</code>.</p><p *ngIf="profile()?.id === check()?.profileId" class="mt-1 text-xs text-gray-500">Profile: <code>{{ profile()?.analyzedCommitSha | slice:0:7 }}</code></p></article>
-    <p *ngIf="check()?.findings?.length === 0" class="mt-4 text-sm text-gray-600">No supported repository pattern occurrences were available for comparison.</p>
-    <div class="mt-4 grid gap-4 md:grid-cols-2">
-      <article *ngFor="let finding of check()?.findings" class="min-w-0 rounded-xl border border-gray-200 p-5 shadow-sm">
+    <article class="design-review-overview mt-4 rounded-xl border border-gray-200 bg-gray-50 p-5" aria-label="Overall design status">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="design-review-eyebrow">Overall design status</p>
+          <div class="mt-2"><app-design-badge [value]="overallStatus()" /></div>
+          <p class="mt-2 text-sm text-gray-700">{{ statusDescription() }}</p>
+        </div>
+        <span class="design-review-status-symbol" aria-hidden="true">{{ overallStatus() === 'CONFORMS' ? '✓' : overallStatus() === 'POTENTIAL_DEVIATION' ? '!' : overallStatus() === 'NOT_APPLICABLE' ? '—' : '?' }}</span>
+      </div>
+      <div class="design-review-metrics mt-4" aria-label="Design conformance counts">
+        <div class="design-review-metric"><span class="design-review-metric-label">Java files checked</span><strong class="design-review-metric-value">{{ check()?.changedJavaFileCount ?? '—' }}</strong><span class="design-review-metric-note" *ngIf="check()?.changedJavaFileCount == null">Not recorded for this saved check</span></div>
+        <div class="design-review-metric"><span class="design-review-metric-label">Conforms</span><strong class="design-review-metric-value">{{ count('CONFORMS') }}</strong></div>
+        <div class="design-review-metric"><span class="design-review-metric-label">Potential deviations</span><strong class="design-review-metric-value">{{ count('POTENTIAL_DEVIATION') }}</strong></div>
+        <div class="design-review-metric"><span class="design-review-metric-label">Relevant patterns</span><strong class="design-review-metric-value">{{ relevantPatterns() }}</strong></div>
+      </div>
+      <p class="mt-3 text-xs text-gray-600">Not applicable: <strong>{{ count('NOT_APPLICABLE') }}</strong> · Insufficient evidence: <strong>{{ count('INSUFFICIENT_EVIDENCE') }}</strong></p>
+      <details appDesignDisclosure class="mt-3 text-xs text-gray-500"><summary>Technical details</summary><p class="mt-2">Saved profile #{{ check()?.profileId }} · PR base <code>{{ check()?.checkedBaseSha | slice:0:7 }}</code> · PR head <code>{{ check()?.checkedHeadSha | slice:0:7 }}</code><span *ngIf="check()?.checkedAt"> · {{ check()?.checkedAt | date:'medium' }}</span></p></details>
+    </article>
+    <article *ngIf="baselineMismatch()" class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4" aria-label="Baseline mismatch"><h3 class="font-semibold">Baseline mismatch</h3><p class="mt-2 text-sm text-gray-600">This historical check used a different repository revision. Run Pattern Check again to prepare or reuse the exact PR-base profile; the saved check is retained.</p><p class="mt-2 text-xs text-gray-500">Saved check profile #{{ check()?.profileId }}; PR base <code>{{ check()?.checkedBaseSha | slice:0:7 }}</code>.</p><p *ngIf="profile()?.id === check()?.profileId" class="mt-1 text-xs text-gray-500">Profile: <code>{{ profile()?.analyzedCommitSha | slice:0:7 }}</code></p></article>
+    <p *ngIf="check()?.findings?.length === 0" class="mt-4 text-sm text-gray-600">No supported repository pattern occurrences were available for comparison. This is not a design violation; PRs are not required to contain GoF patterns.</p>
+    <p *ngIf="overallStatus() === 'NOT_APPLICABLE'" class="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">No applicable structural design change was detected. Ordinary bug fixes and unrelated changes are not treated as design violations.</p>
+    <p *ngIf="overallStatus() === 'INSUFFICIENT_EVIDENCE'" class="mt-4 text-sm text-gray-600">Some relevant design evidence is unavailable or outside the supported checks. Review the explanation below; this is not a conformance pass.</p>
+    <aside *ngIf="!hasEligibleAdvice()" class="design-review-advice-note mt-4" aria-label="AI guidance availability">
+      <span class="design-review-advice-icon" aria-hidden="true">✦</span>
+      <div>
+        <p class="font-semibold">{{ count('POTENTIAL_DEVIATION') === 0 ? 'No design remediation needed for the detected findings' : 'AI remediation is unavailable for these findings' }}</p>
+        <p class="mt-1 text-sm text-gray-600">{{ count('POTENTIAL_DEVIATION') === 0 ? 'No evidence-backed potential deviation was detected by the supported checks. Generate AI Suggestion appears only when an eligible design issue needs review.' : 'The available structural evidence or rule does not meet the requirements for generating design advice. The deterministic finding remains visible.' }}</p>
+      </div>
+    </aside>
+    <h3 class="mt-5 text-base font-semibold" *ngIf="check()?.findings?.length">Pattern findings</h3>
+    <div class="mt-3 grid gap-4 md:grid-cols-2">
+      <article *ngFor="let finding of check()?.findings; let index = index" class="design-review-finding min-w-0 rounded-xl border border-gray-200 p-5 shadow-sm" [class.design-review-finding-conforms]="finding.status === 'CONFORMS'" [class.design-review-finding-issue]="finding.status === 'POTENTIAL_DEVIATION'" [class.design-review-finding-neutral]="finding.status === 'NOT_APPLICABLE'">
         <div class="flex flex-wrap items-center gap-2">
           <h3 class="font-semibold">{{ label(finding.patternType) }}</h3>
           <app-design-badge [value]="finding.status" />
@@ -37,10 +53,37 @@
         </div>
         <p *ngIf="finding.file" class="mt-2 break-all font-mono text-xs text-gray-600">{{ finding.file }}<span *ngIf="finding.line">:{{ finding.line }}</span></p>
         <p class="mt-2 text-sm text-gray-700">{{ finding.rationale }}</p>
-        <p *ngIf="finding.recommendation" class="mt-2 text-sm text-gray-700"><strong>Recommendation:</strong> {{ finding.recommendation }}</p>
+        <div *ngIf="finding.structuralChange || finding.designImpact || finding.reviewPriority || finding.recommendation" class="design-review-impact mt-3">
+          <p *ngIf="finding.structuralChange" class="text-sm text-gray-700"><strong>Structural change:</strong> {{ finding.structuralChange }}</p>
+          <p *ngIf="finding.designImpact" class="mt-2 text-sm text-gray-700"><strong>Potential design impact:</strong> {{ finding.designImpact }}</p>
+          <p *ngIf="finding.reviewPriority" class="mt-2 text-sm font-semibold">{{ label(finding.reviewPriority) }} review priority <span class="font-normal text-gray-500">— a review cue, not a damage prediction</span></p>
+          <p *ngIf="finding.recommendation" class="mt-2 text-sm text-gray-700"><strong>Recommendation:</strong> {{ finding.recommendation }}</p>
+        </div>
         <details appDesignDisclosure class="mt-3 text-sm"><summary>View evidence</summary>
+          <p *ngIf="finding.className" class="mb-3 break-all"><strong>Affected class:</strong> {{ finding.className }}</p>
+          <p class="mb-3"><strong>Matched baseline:</strong> {{ label(finding.patternType) }} · profile #{{ check()?.profileId }}</p>
           <app-design-evidence [evidence]="finding.evidence" />
         </details>
+        <div *ngIf="canSuggest(finding)" class="mt-4 border-t border-gray-200 pt-4">
+          <ng-container *ngIf="!finding.aiSuggestion">
+            <p class="text-xs text-gray-500">Only bounded saved structural evidence is sent to the configured external AI provider after you click. AI advice cannot change the design verdict.</p>
+            <button type="button" class="design-action mt-3 disabled:opacity-50" (click)="suggest(index)" [disabled]="adviceState()[index]?.pending || adviceState()[index]?.coolingDown">{{ adviceState()[index]?.pending ? 'Generating AI suggestion…' : '✦ Generate AI Suggestion' }}</button>
+            <p *ngIf="adviceState()[index]?.pending" role="status" class="mt-2 text-sm text-gray-600">Generating remediation guidance...</p>
+            <p *ngIf="adviceState()[index]?.error" role="alert" class="mt-2 text-sm text-red-700">{{ adviceState()[index]?.error }}</p>
+          </ng-container>
+          <div *ngIf="finding.aiSuggestion as advice" aria-label="AI-assisted design remediation">
+            <h4 class="font-semibold">AI-assisted remediation guidance</h4>
+            <div class="mt-3 grid gap-3 lg:grid-cols-2">
+              <div class="rounded-lg bg-gray-50 p-3"><strong>Summary</strong><p class="mt-1 whitespace-pre-wrap text-sm">{{ advice.summary }}</p></div>
+              <div class="rounded-lg bg-gray-50 p-3"><strong>Risk</strong><p class="mt-1 whitespace-pre-wrap text-sm">{{ advice.risk }}</p></div>
+              <div class="rounded-lg bg-gray-50 p-3"><strong>Recommended remediation</strong><p class="mt-1 whitespace-pre-wrap text-sm">{{ advice.recommendation }}</p></div>
+              <div class="rounded-lg bg-gray-50 p-3"><strong>Verification</strong><p class="mt-1 whitespace-pre-wrap text-sm">{{ advice.verification }}</p></div>
+            </div>
+            <details appDesignDisclosure class="mt-3 text-sm" aria-label="AI advice details"><summary>Details</summary>
+              <p class="mt-2">Model: {{ advice.providerModel }}</p><p>Generated: {{ advice.generatedAt | date:'medium' }}</p><p>Prompt version: {{ advice.promptVersion }}</p><p class="mt-2 whitespace-pre-wrap">Review note: {{ advice.limitations }}</p>
+            </details>
+          </div>
+        </div>
       </article>
     </div>
   </ng-container>

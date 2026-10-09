@@ -63,6 +63,46 @@ class OpenAiSuggestionClientTest {
         }
     }
 
+    @Test void transientStructuredGenerationErrorRetriesExactlyOnceAndKeepsBodyPrivate() {
+        var server = server();
+        server.expect(requestTo("https://api.openai.com/v1/responses"))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"error\":{\"code\":\"json_validate_failed\",\"message\":\"private source code\",\"failed_generation\":\"do not log this\"}}"));
+        server.expect(requestTo("https://api.openai.com/v1/responses"))
+                .andRespond(withSuccess("{\"status\":\"completed\",\"output\":[{\"content\":[{\"type\":\"output_text\",\"text\":\"{\\\"summary\\\":\\\"Summary\\\",\\\"risk\\\":\\\"Risk\\\",\\\"recommendation\\\":\\\"Review method\\\",\\\"verification\\\":\\\"Run tests\\\",\\\"limitations\\\":\\\"More context needed\\\"}\"}]}]}", MediaType.APPLICATION_JSON));
+        assertEquals("Review method", client.generate("saved excerpt").recommendation());
+        server.verify();
+    }
+
+    @Test void other400NeverTriggersAutomaticRetry() {
+        var server = server();
+        server.expect(once(), requestTo("https://api.openai.com/v1/responses"))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"error\":{\"code\":\"invalid_request_error\",\"message\":\"private source code\"}}"));
+        var error = assertThrows(OpenAiSuggestionClient.SuggestionProviderException.class,
+                () -> client.generate("saved excerpt"));
+        assertEquals("INVALID_REQUEST", error.reasonCode());
+        assertFalse(error.getMessage().contains("private"));
+        server.verify();
+    }
+
+    @Test void groqGptOssUsesLowReasoningAndMoreOutputRoom() {
+        var groq = new OpenAiSuggestionClient(new ObjectMapper(), "test-key",
+                "openai/gpt-oss-20b", "https://api.groq.com/openai/v1", false, 1);
+        var mockedHttp = new RestTemplate();
+        ReflectionTestUtils.setField(groq, "http", mockedHttp);
+        var server = MockRestServiceServer.bindTo(mockedHttp).build();
+        server.expect(requestTo("https://api.groq.com/openai/v1/responses"))
+                .andExpect(jsonPath("$.reasoning.effort").value("low"))
+                .andExpect(jsonPath("$.max_output_tokens").value(1200))
+                .andExpect(jsonPath("$.text.format.strict").value(true))
+                .andRespond(withSuccess("{\"status\":\"completed\",\"output\":[{\"content\":[{\"type\":\"output_text\",\"text\":\"{\\\"summary\\\":\\\"Summary\\\",\\\"risk\\\":\\\"Risk\\\",\\\"recommendation\\\":\\\"Review method\\\",\\\"verification\\\":\\\"Run tests\\\",\\\"limitations\\\":\\\"More context needed\\\"}\"}]}]}", MediaType.APPLICATION_JSON));
+        assertEquals("Review method", groq.generate("saved excerpt").recommendation());
+        server.verify();
+    }
+
     @Test void timeoutHasSafeCategory() {
         var server = server();
         server.expect(requestTo("https://api.openai.com/v1/responses"))

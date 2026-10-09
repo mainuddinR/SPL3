@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { Auth } from '../../core/auth/auth';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { SidebarService } from '../sidebar.service';
 import { NotificationBell } from './notification-bell';
 import { NotificationService } from '../../services/notification.service';
@@ -8,7 +9,7 @@ import { NotificationService } from '../../services/notification.service';
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [CommonModule, NotificationBell],
+  imports: [CommonModule, RouterLink, NotificationBell],
   templateUrl: './navbar.html'
 })
 export class Navbar {
@@ -24,6 +25,10 @@ export class Navbar {
 
   toggleProfile() {
     this.isProfileOpen.update(v => !v);
+  }
+
+  closeProfile() {
+    this.isProfileOpen.set(false);
   }
 
   logout() {

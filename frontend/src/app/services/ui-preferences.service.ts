@@ -6,6 +6,7 @@ export type DensityPreference = 'comfortable' | 'compact';
 export type SidebarPreference = 'expanded' | 'compact';
 export type MotionPreference = 'normal' | 'reduced';
 export type EffectsPreference = 'standard' | 'reduced';
+export type NotificationDefaultView = 'all' | 'unread';
 
 @Injectable({ providedIn: 'root' })
 export class UiPreferencesService {
@@ -17,6 +18,8 @@ export class UiPreferencesService {
   sidebar = signal<SidebarPreference>(this.choice('spl3.sidebar', 'expanded', 'compact'));
   motion = signal<MotionPreference>(this.choice('spl3.motion', 'normal', 'reduced'));
   effects = signal<EffectsPreference>(this.choice('spl3.effects', 'standard', 'reduced'));
+  notificationDefaultView = signal<NotificationDefaultView>(this.choice('spl3.notification-view', 'all', 'unread'));
+  notificationAutoRefresh = signal(this.read('spl3.notification-auto-refresh') !== 'false');
   private media = typeof window !== 'undefined' && window.matchMedia
     ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
@@ -42,15 +45,18 @@ export class UiPreferencesService {
   setSidebar(value: SidebarPreference) { this.sidebar.set(value); this.store('spl3.sidebar', value); this.applyAppearance(); }
   setMotion(value: MotionPreference) { this.motion.set(value); this.store('spl3.motion', value); this.applyAppearance(); }
   setEffects(value: EffectsPreference) { this.effects.set(value); this.store('spl3.effects', value); this.applyAppearance(); }
+  setNotificationDefaultView(value: NotificationDefaultView) { this.notificationDefaultView.set(value); this.store('spl3.notification-view', value); }
+  setNotificationAutoRefresh(value: boolean) { this.notificationAutoRefresh.set(value); this.store('spl3.notification-auto-refresh', String(value)); }
 
   reset() {
     this.remove(this.themeKey);
     this.remove(this.pageSizeKey);
-    for (const key of ['spl3.density', 'spl3.sidebar', 'spl3.motion', 'spl3.effects']) this.remove(key);
+    for (const key of ['spl3.density', 'spl3.sidebar', 'spl3.motion', 'spl3.effects', 'spl3.notification-view', 'spl3.notification-auto-refresh']) this.remove(key);
     this.theme.set('system');
     this.pageSize.set(10);
     this.density.set('comfortable'); this.sidebar.set('expanded'); this.motion.set('normal');
     this.effects.set('standard');
+    this.notificationDefaultView.set('all'); this.notificationAutoRefresh.set(true);
     this.applyTheme();
     this.applyAppearance();
   }

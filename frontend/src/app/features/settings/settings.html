@@ -61,6 +61,26 @@
     <button type="button" (click)="reset()" class="mt-4 text-blue-600 hover:underline">Reset UI Preferences</button>
   </section>
 
+  <section class="bg-white border border-gray-200 rounded-xl shadow-sm p-6" aria-labelledby="notification-settings-heading">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <h2 id="notification-settings-heading" class="text-lg font-semibold">Notification Preferences</h2>
+      <span class="text-xs text-gray-500">Saved in this browser</span>
+    </div>
+    <p class="text-sm text-gray-600 mb-4">Choose how the notification bell behaves. These preferences do not disable server-side GitHub PR monitoring.</p>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="text-sm font-medium">Default bell view
+        <select [value]="preferences.notificationDefaultView()" (change)="changeNotificationView($event)" class="block w-full mt-2 border rounded px-3 py-2">
+          <option value="all">All notifications</option><option value="unread">Unread only</option>
+        </select>
+      </label>
+      <label class="flex items-start gap-3 rounded-lg border border-gray-200 p-4 cursor-pointer">
+        <input type="checkbox" class="h-5 w-5 mt-0.5 accent-blue-600" [checked]="preferences.notificationAutoRefresh()" (change)="changeNotificationAutoRefresh($event)">
+        <span><span class="block font-medium text-sm">Refresh notifications automatically</span>
+        <span class="block text-xs text-gray-600 mt-1">Update the bell every 45 seconds while this tab is visible. The bell can still refresh when opened if switched off.</span></span>
+      </label>
+    </div>
+  </section>
+
   <section *ngIf="status() as current" class="bg-white border border-gray-200 rounded-xl shadow-sm p-6" aria-labelledby="ai-settings-heading">
     <h2 id="ai-settings-heading" class="text-lg font-semibold mb-3">AI Suggestions</h2>
     <p class="text-sm font-medium">{{ !current.ai.llmEnabled ? 'Disabled by server' : current.ai.apiKeyConfigured ? 'Enabled and configured' : 'Provider not configured' }}</p>
@@ -76,6 +96,10 @@
       <div class="border rounded p-3"><dt class="text-gray-500">AI suggestion provider</dt><dd class="font-medium">{{ !current.ai.llmEnabled ? 'Disabled' : current.ai.apiKeyConfigured ? 'Enabled & configured' : 'Not configured' }}</dd></div>
       <div class="border rounded p-3"><dt class="text-gray-500">Database</dt><dd class="font-medium">{{ current.databaseConnected ? 'Connected' : 'Unavailable' }}</dd></div>
     </dl>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <button type="button" (click)="refresh()" [disabled]="loading()" class="rounded-lg border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50">{{ loading() ? 'Checking…' : 'Refresh service status' }}</button>
+      <span *ngIf="lastChecked()" class="text-xs text-gray-500">Last checked: {{ lastChecked() | date:'shortTime' }}</span>
+    </div>
     <p class="text-xs text-gray-500 mt-3">Availability reflects a quick endpoint check; it does not run CodeBERT inference.</p>
   </section>
 

@@ -1,6 +1,8 @@
 services:
   frontend:
     build: ./frontend
+    # Keep UI available after an unexpected Docker/host restart.
+    restart: unless-stopped
     ports:
       - "127.0.0.1:4200:80"
     depends_on:
@@ -8,6 +10,8 @@ services:
 
   backend:
     build: ./backend
+    # Recovery after Docker restarts; OAuth must be reconnected after backend restart.
+    restart: unless-stopped
     env_file:
       - ./.local/runtime-secrets.env
     environment:
@@ -25,6 +29,8 @@ services:
 
   ml-service:
     build: ./ml-service
+    # Recover the real CodeBERT service after an unexpected Docker/host restart.
+    restart: unless-stopped
     volumes:
       - type: bind
         source: ./ml-service/models/codebert_satd/best_model

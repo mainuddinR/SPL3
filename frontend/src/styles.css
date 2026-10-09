@@ -144,3 +144,76 @@ html.dark .design-disclosure { color: #93c5fd; }
 html.dark .design-action { color: #bfdbfe; background: #172554; border-color: #3b82f655; }
 html.dark .design-disclosure:hover, html.dark .design-action:hover { color: #dbeafe; background: #1e3a8a; }
 @media (min-width: 640px) { .design-evidence-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Design Review: compact overview, scannable metrics, and evidence-first findings. */
+.design-review-shell { overflow-wrap: anywhere; }
+.design-review-overview { background: linear-gradient(135deg, #f5f9ff 0%, #f8fafc 76%); border-color: #cbd5e1; }
+.design-review-eyebrow { font-size: .75rem; font-weight: 650; letter-spacing: .025em; color: #475569; }
+.design-review-status-symbol { flex: none; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border: 1px solid #bfdbfe; border-radius: 9999px; background: #eff6ff; color: #1d4ed8; font-size: 1.15rem; font-weight: 700; }
+.design-review-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.design-review-metric { display: flex; flex-direction: column; gap: .3rem; min-width: 0; padding: .85rem; border: 1px solid #e2e8f0; border-radius: .75rem; background: #fff; }
+.design-review-metric-label { font-size: .76rem; color: #475569; font-weight: 500; }
+.design-review-metric-value { color: #0f172a; font-size: 1.65rem; line-height: 1.15; font-weight: 750; font-variant-numeric: tabular-nums; }
+.design-review-metric-note { color: #64748b; font-size: .72rem; }
+.design-review-finding { background: #fff; border-left-width: 3px; border-left-color: #93c5fd; }
+.design-review-finding-conforms { border-left-color: #10b981; }
+.design-review-finding-issue { border-left-color: #f59e0b; }
+.design-review-finding-neutral { border-left-color: #94a3b8; }
+.design-review-impact { padding: .8rem; border-radius: .7rem; border: 1px solid #fde68a; background: #fffbeb; }
+.design-review-advice-note { display: flex; align-items: flex-start; gap: .75rem; padding: 1rem; border-radius: .75rem; border: 1px solid #bfdbfe; background: #eff6ff; color: #1e40af; }
+.design-review-advice-icon { flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 9999px; background: #dbeafe; color: #1d4ed8; font-weight: 700; }
+@media (min-width: 700px) { .design-review-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+html.dark .design-review-overview { background: linear-gradient(135deg, #17243d 0%, #1e293b 80%); border-color: #475569; }
+html.dark .design-review-eyebrow, html.dark .design-review-metric-label { color: #cbd5e1; }
+html.dark .design-review-metric { background: #0f172a; border-color: #475569; }
+html.dark .design-review-metric-value { color: #f1f5f9; }
+html.dark .design-review-metric-note { color: #94a3b8; }
+html.dark .design-review-status-symbol { background: #172554; border-color: #3b82f6; color: #bfdbfe; }
+html.dark .design-review-finding { background: #1e293b; }
+html.dark .design-review-impact { background: #3b2c19; border-color: #92400e; }
+html.dark .design-review-advice-note { background: #172554; border-color: #3b82f6; color: #bfdbfe; }
+html.dark .design-review-advice-icon { background: #1e3a8a; color: #dbeafe; }
+
+/* Dashboard distribution palette and dark theme */
+.distribution-row[data-tone="design"] { --tone: #2563eb; --tone-soft: #eff6ff; }
+.distribution-row[data-tone="defect"] { --tone: #e0574f; --tone-soft: #fff1f2; }
+.distribution-row[data-tone="test"] { --tone: #7c3aed; --tone-soft: #f5f3ff; }
+.distribution-row[data-tone="requirement"] { --tone: #0d9488; --tone-soft: #f0fdfa; }
+.distribution-row[data-tone="documentation"] { --tone: #0891b2; --tone-soft: #ecfeff; }
+.distribution-row[data-tone="unclassified"] { --tone: #4f46e5; --tone-soft: #eef2ff; }
+.distribution-row[data-tone="not-assessed"] { --tone: #64748b; --tone-soft: #f1f5f9; }
+.distribution-row[data-tone="severity-1"] { --tone: #059669; --tone-soft: #ecfdf5; }
+.distribution-row[data-tone="severity-2"] { --tone: #0d9488; --tone-soft: #f0fdfa; }
+.distribution-row[data-tone="severity-3"] { --tone: #d97706; --tone-soft: #fffbeb; }
+.distribution-row[data-tone="severity-4"] { --tone: #ea580c; --tone-soft: #fff7ed; }
+.distribution-row[data-tone="severity-5"] { --tone: #dc2626; --tone-soft: #fef2f2; }
+
+
+html.dark app-dashboard .distribution-card {
+  background: #1e293b; border-color: #475569;
+  box-shadow: 0 5px 22px rgba(0,0,0,.1);
+}
+html.dark app-dashboard .distribution-title,
+html.dark app-dashboard .distribution-label,
+html.dark app-dashboard .distribution-stat > strong { color: #f8fafc; }
+html.dark app-dashboard .distribution-subtitle,
+html.dark app-dashboard .distribution-stat > span,
+html.dark app-dashboard .distribution-percent,
+html.dark app-dashboard .distribution-description { color: #cbd5e1; }
+html.dark app-dashboard .distribution-stat { background: #0f172a; border-color: #475569; }
+html.dark app-dashboard .distribution-heading-icon { background: #1e3a8a; color: #bfdbfe; }
+html.dark app-dashboard .distribution-row.distribution-leader { background: #273449; border-color: #475569; }
+html.dark app-dashboard .distribution-count { background: #0f172a; border-color: #475569; color: #f1f5f9; }
+html.dark app-dashboard .distribution-track { background: #334155; }
+html.dark app-dashboard .distribution-empty, html.dark app-dashboard .distribution-empty strong { color: #e2e8f0; }
+
+
+
+/* Dashboard empty states */
+.distribution-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: .4rem; padding: 2.5rem .8rem; color: #64748b; font-size: .86rem;
+}
+.distribution-empty .material-icons { font-size: 2.2rem; color: #94a3b8; margin-bottom: .35rem; }
+.distribution-empty strong { color: #334155; font-size: .98rem; }
+.distribution-empty p { max-width: 28rem; line-height: 1.5; }

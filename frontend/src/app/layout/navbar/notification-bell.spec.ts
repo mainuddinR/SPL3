@@ -3,6 +3,7 @@ import { provideRouter, Router } from '@angular/router';
 import { signal } from '@angular/core';
 import { NotificationBell } from './notification-bell';
 import { NotificationService } from '../../services/notification.service';
+import { UiPreferencesService } from '../../services/ui-preferences.service';
 
 describe('NotificationBell', () => {
   const unreadCount = signal(2);
@@ -18,6 +19,7 @@ describe('NotificationBell', () => {
     markRead: jasmine.createSpy('markRead'), markAllRead: jasmine.createSpy('markAllRead') };
 
   beforeEach(async () => {
+    localStorage.removeItem('spl3.notification-view');
     unreadCount.set(2); unreadOnly.set(false); monitorStatus.set(null);
     notifications.set([{ id: 1, type: 'NEW_PR', repository: 'owner/repo', pullRequestId: 19,
       pullRequestNumber: 7, title: 'New pull request #7', message: 'Change', read: false,
@@ -27,7 +29,7 @@ describe('NotificationBell', () => {
       provideRouter([]), { provide: NotificationService, useValue: api }
     ] }).compileComponents();
   });
-  afterEach(() => document.documentElement.classList.remove('dark'));
+  afterEach(() => { document.documentElement.classList.remove('dark'); localStorage.removeItem('spl3.notification-view'); });
 
   it('shows unread count and opens, filters, marks and closes the panel', () => {
     const fixture = TestBed.createComponent(NotificationBell); fixture.detectChanges();
@@ -48,6 +50,17 @@ describe('NotificationBell', () => {
     component.toggle(new Event('click'));
     component.closeEscape();
     expect(component.open()).toBeFalse();
+  });
+
+  it('opens with the notification view configured in Settings', () => {
+    const prefs = TestBed.inject(UiPreferencesService);
+    prefs.setNotificationDefaultView('unread');
+    const fixture = TestBed.createComponent(NotificationBell);
+    fixture.componentInstance.toggle(new Event('click')); fixture.detectChanges();
+    expect(unreadOnly()).toBeTrue();
+    const tabs = fixture.nativeElement.querySelectorAll('[role="tab"]') as NodeListOf<HTMLButtonElement>;
+    expect(tabs[1].getAttribute('aria-selected')).toBe('true');
+    prefs.reset();
   });
 
   it('shows empty state and hides zero badge', () => {

@@ -27,18 +27,60 @@
   <div *ngIf="data.stats.analyzedPullRequestCount > 0 && data.stats.currentSatdFindingCount === 0" class="bg-white rounded shadow p-5 mb-6">0 SATD findings in latest completed PR analyses.</div>
 
   <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 mb-8">
-    <section class="bg-white rounded shadow p-5" aria-labelledby="category-heading">
-      <div class="mb-4 flex items-center gap-2"><h3 id="category-heading" class="text-lg font-semibold">Category Distribution</h3><app-info-popover label="About SATD categories"><ul class="space-y-1"><li>Design: structural or maintainability debt.</li><li>Defect: acknowledged bugs or incorrect behavior.</li><li>Test: missing or inadequate tests.</li><li>Requirement: unfinished functionality.</li><li>Documentation: missing or outdated documentation.</li><li>Unclassified: assessed without a unique category.</li><li>Not Assessed: no saved category assessment.</li></ul></app-info-popover></div>
-      <div *ngFor="let item of categories" class="mb-3">
-        <div class="flex justify-between text-sm"><span>{{ item.label }}</span><span>{{ data.categoryDistribution[item.key] }}</span></div>
-        <div class="h-2 rounded bg-gray-100" aria-hidden="true"><div class="h-2 rounded bg-indigo-500" [style.width.%]="barWidth(data.categoryDistribution[item.key], data.categoryDistribution)"></div></div>
+    <section class="distribution-card" aria-labelledby="category-heading" data-distribution="category">
+      <div class="distribution-heading">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2"><h3 id="category-heading" class="distribution-title">Category Distribution</h3><app-info-popover label="About SATD categories"><ul class="space-y-1"><li>Design: structural or maintainability debt.</li><li>Defect: acknowledged bugs or incorrect behavior.</li><li>Test: missing or inadequate tests.</li><li>Requirement: unfinished functionality.</li><li>Documentation: missing or outdated documentation.</li><li>Unclassified: assessed without a unique category.</li><li>Not Assessed: no saved category assessment.</li></ul></app-info-popover></div>
+          <p class="distribution-subtitle">How detected SATD is distributed across categories</p>
+        </div>
+        <span class="distribution-heading-icon material-icons" aria-hidden="true">donut_large</span>
+      </div>
+      <div class="distribution-stats" aria-label="Category distribution summary">
+        <div class="distribution-stat"><span>Total findings</span><strong>{{ total(data.categoryDistribution, categories) }}</strong></div>
+        <div class="distribution-stat"><span>Active categories</span><strong>{{ activeCategories(data.categoryDistribution) }}</strong></div>
+        <div class="distribution-stat"><span>Most common</span><strong class="distribution-stat-text">{{ dominantLabel(data.categoryDistribution, categories) }}</strong></div>
+      </div>
+      <div *ngIf="total(data.categoryDistribution, categories) === 0" class="distribution-empty" role="status">
+        <span class="material-icons" aria-hidden="true">query_stats</span>
+        <strong>No SATD findings to visualize</strong>
+        <p>Category data will appear after a completed PR analysis detects SATD.</p>
+      </div>
+      <div *ngIf="total(data.categoryDistribution, categories) > 0" class="distribution-rows">
+        <div *ngFor="let item of categories" class="distribution-row" [attr.data-tone]="item.tone" [class.distribution-zero]="count(data.categoryDistribution, item.key) === 0" [class.distribution-leader]="count(data.categoryDistribution, item.key) > 0 && item.label === dominantLabel(data.categoryDistribution, categories)">
+          <div class="distribution-row-top">
+            <span class="distribution-label"><span class="distribution-dot" aria-hidden="true"></span>{{ item.label }}</span>
+            <span class="distribution-values"><span class="distribution-percent">{{ percentageLabel(count(data.categoryDistribution, item.key), total(data.categoryDistribution, categories)) }}</span><span class="distribution-count">{{ count(data.categoryDistribution, item.key) }}</span></span>
+          </div>
+          <div class="distribution-track" aria-hidden="true"><div class="distribution-fill" [style.width.%]="percentage(count(data.categoryDistribution, item.key), total(data.categoryDistribution, categories))"></div></div>
+        </div>
       </div>
     </section>
-    <section class="bg-white rounded shadow p-5" aria-labelledby="severity-heading">
-      <div class="mb-4 flex items-center gap-2"><h3 id="severity-heading" class="text-lg font-semibold">Severity Distribution</h3><app-info-popover label="About severity levels"><p>Saved method evidence determines project prioritization: Severity 1 is lowest, 2 lower, 3 moderate, 4 higher, and 5 highest. Not Assessed means no saved severity score.</p></app-info-popover></div>
-      <div *ngFor="let item of severities" class="mb-3">
-        <div class="flex justify-between text-sm"><span>{{ item.label }}</span><span>{{ data.severityDistribution[item.key] }}</span></div>
-        <div class="h-2 rounded bg-gray-100" aria-hidden="true"><div class="h-2 rounded bg-blue-600" [style.width.%]="barWidth(data.severityDistribution[item.key], data.severityDistribution)"></div></div>
+    <section class="distribution-card" aria-labelledby="severity-heading" data-distribution="severity">
+      <div class="distribution-heading">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2"><h3 id="severity-heading" class="distribution-title">Severity Distribution</h3><app-info-popover label="About severity levels"><p>Saved method evidence determines project prioritization: Severity 1 is lowest, 2 lower, 3 moderate, 4 higher, and 5 highest. Not Assessed means no saved severity score.</p></app-info-popover></div>
+          <p class="distribution-subtitle">Priority levels assigned to saved SATD findings</p>
+        </div>
+        <span class="distribution-heading-icon material-icons" aria-hidden="true">monitoring</span>
+      </div>
+      <div class="distribution-stats" aria-label="Severity distribution summary">
+        <div class="distribution-stat"><span>Assessed findings</span><strong>{{ assessedSeverityCount(data.severityDistribution) }}</strong></div>
+        <div class="distribution-stat"><span>Highest present</span><strong class="distribution-stat-text">{{ highestSeverity(data.severityDistribution) }}</strong></div>
+        <div class="distribution-stat"><span>Most common</span><strong class="distribution-stat-text">{{ dominantLabel(data.severityDistribution, severities) }}</strong></div>
+      </div>
+      <div *ngIf="total(data.severityDistribution, severities) === 0" class="distribution-empty" role="status">
+        <span class="material-icons" aria-hidden="true">insights</span>
+        <strong>No SATD findings to visualize</strong>
+        <p>Severity levels will appear when completed PR analyses contain saved SATD findings.</p>
+      </div>
+      <div *ngIf="total(data.severityDistribution, severities) > 0" class="distribution-rows">
+        <div *ngFor="let item of severities" class="distribution-row" [attr.data-tone]="item.tone" [class.distribution-zero]="count(data.severityDistribution, item.key) === 0" [class.distribution-leader]="count(data.severityDistribution, item.key) > 0 && item.label === dominantLabel(data.severityDistribution, severities)">
+          <div class="distribution-row-top">
+            <span class="distribution-label"><span class="distribution-dot" aria-hidden="true"></span>{{ item.label }} <small class="distribution-description">{{ item.description }}</small></span>
+            <span class="distribution-values"><span class="distribution-percent">{{ percentageLabel(count(data.severityDistribution, item.key), total(data.severityDistribution, severities)) }}</span><span class="distribution-count">{{ count(data.severityDistribution, item.key) }}</span></span>
+          </div>
+          <div class="distribution-track" aria-hidden="true"><div class="distribution-fill" [style.width.%]="percentage(count(data.severityDistribution, item.key), total(data.severityDistribution, severities))"></div></div>
+        </div>
       </div>
     </section>
   </div>

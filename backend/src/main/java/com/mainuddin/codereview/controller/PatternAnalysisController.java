@@ -16,9 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class PatternAnalysisController {
     private final RepositoryPatternProfileService profiles;
     private final PatternConformanceService checks;
+    private final com.mainuddin.codereview.design.DesignAdviceService advice;
 
-    public PatternAnalysisController(RepositoryPatternProfileService profiles, PatternConformanceService checks) {
-        this.profiles = profiles; this.checks = checks;
+    public PatternAnalysisController(RepositoryPatternProfileService profiles, PatternConformanceService checks,
+            com.mainuddin.codereview.design.DesignAdviceService advice) {
+        this.profiles = profiles; this.checks = checks; this.advice = advice;
     }
 
     @GetMapping("/projects/{projectId}/design-profile")
@@ -48,6 +50,12 @@ public class PatternAnalysisController {
     @PostMapping("/prs/{prId}/design-conformance")
     public PatternConformanceDTO check(@PathVariable Long prId) {
         return checks.start(prId, githubId());
+    }
+
+    @PostMapping("/prs/{prId}/design-conformance/{checkId}/findings/{findingIndex}/suggestion")
+    public com.mainuddin.codereview.design.DesignAdviceService.Response suggestion(@PathVariable Long prId,
+            @PathVariable Long checkId, @PathVariable int findingIndex) {
+        return advice.generate(prId, checkId, findingIndex, githubId());
     }
 
     private String githubId() {

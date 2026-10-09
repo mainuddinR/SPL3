@@ -127,12 +127,75 @@ describe('Dashboard', () => {
       severityDistribution: { '1': 1, '2': 1, '3': 1, '4': 1, '5': 1, NOT_ASSESSED: 2 }
     });
     fixture.detectChanges();
-    const categoryText = fixture.nativeElement.querySelector('#category-heading').closest('section').textContent as string;
-    const severityText = fixture.nativeElement.querySelector('#severity-heading').closest('section').textContent as string;
-    expect(categoryText).toMatch(/Unclassified\s*7/);
-    expect(categoryText).toMatch(/Not Assessed\s*0/);
-    for (let score = 1; score <= 5; score++) expect(severityText).toMatch(new RegExp(`Severity ${score}\\s*1`));
-    expect(severityText).toMatch(/Not Assessed\s*2/);
+    const categorySection = fixture.nativeElement.querySelector('[data-distribution="category"]') as HTMLElement;
+    const severitySection = fixture.nativeElement.querySelector('[data-distribution="severity"]') as HTMLElement;
+    const unclassified = categorySection.querySelector('[data-tone="unclassified"]') as HTMLElement;
+    const notAssessed = categorySection.querySelector('[data-tone="not-assessed"]') as HTMLElement;
+    expect(unclassified.querySelector('.distribution-count')?.textContent?.trim()).toBe('7');
+    expect(unclassified.querySelector('.distribution-percent')?.textContent?.trim()).toBe('100.0%');
+    expect(notAssessed.querySelector('.distribution-count')?.textContent?.trim()).toBe('0');
+    for (let score = 1; score <= 5; score++) {
+      const row = severitySection.querySelector(`[data-tone="severity-${score}"]`) as HTMLElement;
+      expect(row.querySelector('.distribution-count')?.textContent?.trim()).toBe('1');
+      expect(row.querySelector('.distribution-percent')?.textContent?.trim()).toBe('14.3%');
+    }
+    expect(severitySection.querySelector('[data-tone="not-assessed"] .distribution-count')?.textContent?.trim()).toBe('2');
+    expect(severitySection.querySelector('.distribution-stats')?.textContent).toContain('5');
+  });
+
+  it('uses truthful total-based percentages and highlights the dominant category', () => {
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    http.expectOne(url).flush({ ...data,
+      categoryDistribution: { DESIGN: 1, DEFECT: 2, TEST: 0, REQUIREMENT: 0,
+        DOCUMENTATION: 0, UNCLASSIFIED: 5, NOT_ASSESSED: 2 },
+      severityDistribution: { '1': 1, '2': 1, '3': 1, '4': 4, '5': 0, NOT_ASSESSED: 3 }
+    });
+    fixture.detectChanges();
+    const category = fixture.nativeElement.querySelector('[data-distribution="category"]') as HTMLElement;
+    const severity = fixture.nativeElement.querySelector('[data-distribution="severity"]') as HTMLElement;
+    expect(category.querySelectorAll('.distribution-stat strong')[0].textContent.trim()).toBe('10');
+    expect(category.querySelectorAll('.distribution-stat strong')[1].textContent.trim()).toBe('2');
+    expect(category.querySelectorAll('.distribution-stat strong')[2].textContent.trim()).toBe('Unclassified');
+    const leader = category.querySelector('[data-tone="unclassified"]') as HTMLElement;
+    expect(leader.classList).toContain('distribution-leader');
+    expect(leader.querySelector('.distribution-percent')?.textContent?.trim()).toBe('50.0%');
+    expect((leader.querySelector('.distribution-fill') as HTMLElement).style.width).toBe('50%');
+    const severity4 = severity.querySelector('[data-tone="severity-4"]') as HTMLElement;
+    expect(severity4.querySelector('.distribution-percent')?.textContent?.trim()).toBe('40.0%');
+    expect(severity.querySelectorAll('.distribution-stat strong')[0].textContent.trim()).toBe('7');
+    expect(severity.querySelectorAll('.distribution-stat strong')[1].textContent.trim()).toBe('Level 4');
+    expect(severity.querySelectorAll('.distribution-stat strong')[2].textContent.trim()).toBe('Severity 4');
+  });
+
+  it('shows a clean zero-data state without invalid bar widths', () => {
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    http.expectOne(url).flush({ ...data,
+      stats: { ...data.stats, currentSatdFindingCount: 0 },
+      categoryDistribution: { DESIGN: 0, DEFECT: 0, TEST: 0, REQUIREMENT: 0,
+        DOCUMENTATION: 0, UNCLASSIFIED: 0, NOT_ASSESSED: 0 },
+      severityDistribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, NOT_ASSESSED: 0 }
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.distribution-empty').length).toBe(2);
+    expect(fixture.nativeElement.querySelectorAll('.distribution-fill').length).toBe(0);
+    expect(fixture.componentInstance.percentageLabel(0, 0)).toBe('0.0%');
+    expect(fixture.nativeElement.textContent).not.toContain('NaN');
+  });
+
+  it('uses severity semantics and makes zero rows muted, not invisible', () => {
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    http.expectOne(url).flush(structuredClone(data));
+    fixture.detectChanges();
+    const first = fixture.nativeElement.querySelector('[data-tone="severity-1"]') as HTMLElement;
+    expect(first.classList.contains('distribution-zero')).toBeTrue();
+    expect(first.textContent).toContain('Lowest');
+    expect((first.querySelector('.distribution-fill') as HTMLElement).style.width).toBe('0%');
+    const na = fixture.nativeElement.querySelector('[data-distribution="severity"] [data-tone="not-assessed"]') as HTMLElement;
+    expect(na.textContent).toContain('Not Assessed');
+    expect(na.textContent).toContain('100.0%');
   });
 
   it('makes all four summary cards real drill-down links', () => {

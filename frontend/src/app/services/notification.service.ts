@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { NotificationPage, PrNotification } from '../models/notification.model';
 import { Auth } from '../core/auth/auth';
 import { SettingsApiService } from './settings-api.service';
+import { UiPreferencesService } from './ui-preferences.service';
 import { GithubMonitorStatus } from '../models/settings.model';
 import { catchError, EMPTY, interval, switchMap } from 'rxjs';
 
@@ -13,19 +14,20 @@ export class NotificationService {
   private http = inject(HttpClient);
   private auth = inject(Auth);
   private settings = inject(SettingsApiService);
+  private preferences = inject(UiPreferencesService);
   monitorStatus = signal<GithubMonitorStatus | null>(null);
   unreadCount = signal(0);
   notifications = signal<PrNotification[]>([]);
   loading = signal(false);
   error = signal(false);
-  unreadOnly = signal(false);
+  unreadOnly = signal(this.preferences.notificationDefaultView() === 'unread');
 
   constructor() {
     this.auth.currentUser$.subscribe(user => {
       if (user) this.refresh(); else this.clear();
     });
     interval(45000).pipe(switchMap(() => {
-      if (!this.auth.isLoggedIn() || (typeof document !== 'undefined' && document.hidden)) return EMPTY;
+      if (!this.auth.isLoggedIn() || !this.preferences.notificationAutoRefresh() || (typeof document !== 'undefined' && document.hidden)) return EMPTY;
       this.refreshMonitorStatus();
       return this.http.get<{ count: number }>(`${URL}/unread-count`).pipe(catchError(() => EMPTY));
     })).subscribe(result => { this.unreadCount.set(result.count); this.load(); });

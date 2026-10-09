@@ -130,4 +130,21 @@ class RepositorySourceSnapshotServiceTest {
         assertThrows(ResponseStatusException.class, () -> service.changedJavaBaseSources(project, "123", java.util.List.of(), "not-a-sha"));
         server.verify();
     }
+    @Test void exactCommitUsesAuthenticatedImmutableShaWithoutDefaultBranchLookup() {
+        server.expect(requestTo("https://api.github.com/repos/owner/repo/commits/" + SHA))
+                .andExpect(header("Authorization", "Bearer unit-test-token"))
+                .andRespond(withSuccess("{\"sha\":\"" + SHA + "\"}", MediaType.APPLICATION_JSON));
+        var head = service.exactCommit(project, "123", SHA);
+        assertEquals(SHA, head.sha()); assertNull(head.defaultBranch()); server.verify();
+    }
+    @Test void mismatchingCommitAndRateLimitNeverBecomeAnExactBaseline() {
+        server.expect(requestTo("https://api.github.com/repos/owner/repo/commits/" + SHA))
+                .andRespond(withSuccess("{\"sha\":\"" + BLOB + "\"}", MediaType.APPLICATION_JSON));
+        assertThrows(ResponseStatusException.class, () -> service.exactCommit(project, "123", SHA)); server.verify();
+        server.reset();
+        server.expect(requestTo("https://api.github.com/repos/owner/repo/commits/" + SHA))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS).body("private provider details"));
+        var failure = assertThrows(ResponseStatusException.class, () -> service.exactCommit(project, "123", SHA));
+        assertEquals(429, failure.getStatusCode().value()); assertFalse(failure.getReason().contains("private")); server.verify();
+    }
 }

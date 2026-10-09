@@ -2,17 +2,22 @@ import { Component, HostListener, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { NotificationService } from '../../services/notification.service';
+import { UiPreferencesService } from '../../services/ui-preferences.service';
 
 @Component({ selector: 'app-notification-bell', standalone: true, imports: [CommonModule], templateUrl: './notification-bell.html' })
 export class NotificationBell {
   notifications = inject(NotificationService);
   private router = inject(Router);
+  private preferences = inject(UiPreferencesService);
   open = signal(false);
 
   toggle(event: Event) {
     event.stopPropagation();
     this.open.update(value => !value);
-    if (this.open()) this.notifications.refresh();
+    if (this.open()) {
+      this.notifications.unreadOnly.set(this.preferences.notificationDefaultView() === 'unread');
+      this.notifications.refresh();
+    }
   }
   @HostListener('document:click') closeOutside() { this.open.set(false); }
   @HostListener('document:keydown.escape') closeEscape() { this.open.set(false); }

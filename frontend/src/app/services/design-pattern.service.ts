@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { PatternConformance, PatternProfile } from '../models/design-pattern.model';
+import { DesignAdviceResponse, PatternConformance, PatternProfile } from '../models/design-pattern.model';
 
 @Injectable({ providedIn: 'root' })
 export class DesignPatternService {
@@ -22,5 +22,8 @@ export class DesignPatternService {
   }
   runCheck(prId: number): Observable<PatternConformance> {
     return this.http.post<PatternConformance>(`${this.base}/prs/${prId}/design-conformance`, null);
+  }
+  generateDesignAdvice(prId: number, checkId: number, index: number): Observable<DesignAdviceResponse> {
+    return this.http.post<DesignAdviceResponse>(`${this.base}/prs/${prId}/design-conformance/${checkId}/findings/${index}/suggestion`, null);
   }
 }

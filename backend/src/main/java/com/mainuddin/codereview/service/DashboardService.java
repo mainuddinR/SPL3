@@ -59,7 +59,7 @@ public class DashboardService {
         Map<Long, RepositoryCounts> byProject = new LinkedHashMap<>();
         projects.forEach(project -> byProject.put(project.getId(), new RepositoryCounts(project)));
         for (var counts : byProject.values()) {
-            profiles.findFirstByProjectIdOrderByIdDesc(counts.project.getId()).ifPresent(profile -> {
+            profiles.findDefaultProfiles(counts.project.getId(), org.springframework.data.domain.PageRequest.of(0, 1)).stream().findFirst().ifPresent(profile -> {
                 counts.designStatus = switch (profile.getStatus()) {
                     case "RUNNING" -> "Running";
                     case "FAILED" -> "Analysis failed";

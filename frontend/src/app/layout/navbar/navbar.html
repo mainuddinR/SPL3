@@ -24,7 +24,7 @@
           <a href="https://github.com/{{ user.username }}" target="_blank" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
             <span class="material-icons text-[18px]">open_in_new</span> GitHub Profile
           </a>
-          <a href="/dashboard/settings" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"><span class="material-icons text-[18px]">settings</span> Settings</a>
+          <a routerLink="/settings" (click)="closeProfile()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"><span class="material-icons text-[18px]">settings</span> Settings</a>
           <button (click)="logout()" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
             <span class="material-icons text-[18px]">logout</span> Logout
           </button>

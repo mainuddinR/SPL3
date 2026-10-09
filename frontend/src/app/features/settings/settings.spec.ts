@@ -17,7 +17,7 @@ describe('Settings', () => {
   let response: Subject<UiStatus>;
 
   beforeEach(async () => {
-    for (const key of ['theme', 'page-size', 'density', 'sidebar', 'motion', 'effects', 'tooltips']) localStorage.removeItem(`spl3.${key}`);
+    for (const key of ['theme', 'page-size', 'density', 'sidebar', 'motion', 'effects', 'tooltips', 'notification-view', 'notification-auto-refresh']) localStorage.removeItem(`spl3.${key}`);
     response = new Subject();
     service = jasmine.createSpyObj<SettingsApiService>('SettingsApiService', ['status', 'githubMonitorStatus']);
     service.status.and.returnValue(response.asObservable());
@@ -27,7 +27,7 @@ describe('Settings', () => {
       provideRouter([]), { provide: SettingsApiService, useValue: service }, { provide: Auth, useValue: auth }
     ] }).compileComponents();
   });
-  afterEach(() => { for (const key of ['theme', 'page-size', 'density', 'sidebar', 'motion', 'effects', 'tooltips']) localStorage.removeItem(`spl3.${key}`);
+  afterEach(() => { for (const key of ['theme', 'page-size', 'density', 'sidebar', 'motion', 'effects', 'tooltips', 'notification-view', 'notification-auto-refresh']) localStorage.removeItem(`spl3.${key}`);
     document.documentElement.classList.remove('dark', 'density-compact', 'sidebar-compact', 'motion-reduced', 'effects-reduced', 'tooltips-disabled'); });
 
   it('has a real route and renders safe account, AI, integration, and privacy status', () => {
@@ -41,6 +41,8 @@ describe('Settings', () => {
     expect(text).toContain('Disabled by server');
     expect(text).toContain('Internal ML endpoint');
     expect(text).toContain('Privacy & Processing');
+    expect(text).toContain('Notification Preferences');
+    expect(fixture.nativeElement.textContent).not.toContain('Manage connected repositories');
     expect(text).not.toContain('OPENAI_API_KEY');
   });
 
@@ -79,6 +81,35 @@ describe('Settings', () => {
     expect(fixture.nativeElement.textContent).toContain('GitHub monitoring paused');
     expect(fixture.nativeElement.querySelector('a[href="http://localhost:8080/oauth2/authorization/github"]')).not.toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('private-token');
+  });
+
+  it('persists notification preferences and restores them with Reset UI Preferences', () => {
+    const fixture = TestBed.createComponent(Settings); fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.changeNotificationView({ target: { value: 'unread' } } as unknown as Event);
+    component.changeNotificationAutoRefresh({ target: { checked: false } } as unknown as Event);
+    expect(localStorage.getItem('spl3.notification-view')).toBe('unread');
+    expect(localStorage.getItem('spl3.notification-auto-refresh')).toBe('false');
+    const other = new UiPreferencesService();
+    expect(other.notificationDefaultView()).toBe('unread');
+    expect(other.notificationAutoRefresh()).toBeFalse();
+    component.reset();
+    expect(component.preferences.notificationDefaultView()).toBe('all');
+    expect(component.preferences.notificationAutoRefresh()).toBeTrue();
+    expect(localStorage.getItem('spl3.notification-view')).toBeNull();
+    expect(localStorage.getItem('spl3.notification-auto-refresh')).toBeNull();
+  });
+
+  it('allows a manual status refresh without changing the saved preferences', () => {
+    const fixture = TestBed.createComponent(Settings); fixture.detectChanges();
+    response.next(status); fixture.detectChanges();
+    const buttons = fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>;
+    const button = Array.from(buttons).find(item => item.textContent?.includes('Refresh service status')) as HTMLButtonElement;
+    expect(button).toBeDefined();
+    expect(fixture.componentInstance.lastChecked()).not.toBeNull();
+    button.click(); fixture.detectChanges();
+    expect(service.status).toHaveBeenCalledTimes(2);
+    expect(service.githubMonitorStatus).toHaveBeenCalledTimes(2);
   });
 
   it('preserves Light, Dark, and System theme choices', () => {

@@ -134,6 +134,11 @@ describe('RepositoryDesignPatterns', () => {
     expect(occurrences.open).toBeFalse(); occurrences.open = true;
     expect(occurrences.textContent).toContain('Strategy #1'); expect(occurrences.textContent).toContain('src/NotificationStrategy.java');
     expect(host.querySelector('button[aria-label="About primary pattern"]')).not.toBeNull();
+    expect(host.textContent).not.toContain('Ranking details');
+    expect(host.textContent).not.toContain('Evidence score:');
+    const primaryInfo = host.querySelector('button[aria-label="About primary pattern"]') as HTMLElement;
+    primaryInfo.click(); fixture.detectChanges();
+    expect(host.textContent).toContain('strongest supported structural evidence');
   });
   for (const state of ['MIXED', 'LOCALIZED', 'NO_GOF'] as const) {
     it(`renders a meaningful ${state} profile without inventing a primary`, () => {
