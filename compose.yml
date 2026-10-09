@@ -16,7 +16,7 @@ services:
       - ./.local/runtime-secrets.env
     environment:
       SPRING_PROFILES_ACTIVE: oracle
-      ORACLE_HOST: 192.168.0.169
+      ORACLE_HOST: host.docker.internal
       ORACLE_PORT: "1521"
       ORACLE_SERVICE: XEPDB1
       ORACLE_USER: SPL3_APP
