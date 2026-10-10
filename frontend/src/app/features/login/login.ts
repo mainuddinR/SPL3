@@ -1,3 +1,4 @@
+import { API_ORIGIN } from '../../core/config/api-origin';
 import { Component } from '@angular/core';
 
 @Component({
@@ -9,6 +10,6 @@ import { Component } from '@angular/core';
 })
 export class Login {
   loginWithGithub() {
-    window.location.href = 'http://localhost:8080/oauth2/authorization/github';
+    window.location.href = `${API_ORIGIN}/oauth2/authorization/github`;
   }
 }

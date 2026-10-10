@@ -63,6 +63,7 @@ class GithubAuthorizedClientLoginTest {
         ReflectionTestUtils.setField(handler, "userRepository", users);
         ReflectionTestUtils.setField(handler, "jwtUtils", jwt);
         ReflectionTestUtils.setField(handler, "authorizedClients", resolver);
+        ReflectionTestUtils.setField(handler, "frontendUrl", "http://localhost:4200");
         HttpServletResponse response = mock(HttpServletResponse.class);
         handler.onAuthenticationSuccess(mock(HttpServletRequest.class), response, authentication);
 
@@ -74,7 +75,7 @@ class GithubAuthorizedClientLoginTest {
         assertTrue(status.githubMonitorStatus("123").githubSessionConnected());
         var monitorClient = new GithubPullRequestClient(mock(org.springframework.web.client.RestTemplate.class), resolver);
         assertTrue(monitorClient.hasValidSession("123"));
-        verify(response).sendRedirect("http://localhost:4200/login/success?token=unit-test-jwt");
+        verify(response).sendRedirect("http://localhost:4200/login/success#token=unit-test-jwt");
         assertFalse(status.githubMonitorStatus("123").toString().contains(TEST_TOKEN));
     }
 

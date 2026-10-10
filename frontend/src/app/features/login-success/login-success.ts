@@ -18,8 +18,11 @@ export class LoginSuccess implements OnInit {
 
   ngOnInit(): void {
     this.route.queryParams.subscribe(params => {
-      const token = params['token'];
+      // URL fragments are not sent to HTTP servers or their access logs.
+      const fragment = new URLSearchParams(window.location.hash.substring(1));
+      const token = fragment.get('token') || params['token'];
       if (token) {
+        window.history.replaceState(window.history.state, '', '/login/success');
         this.tokenStorage.saveToken(token);
         this.auth.checkLoginStatus();
         this.router.navigate(['/dashboard']);

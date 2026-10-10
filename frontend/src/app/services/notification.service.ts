@@ -1,3 +1,4 @@
+import { API_ORIGIN } from '../core/config/api-origin';
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { NotificationPage, PrNotification } from '../models/notification.model';
@@ -7,7 +8,7 @@ import { UiPreferencesService } from './ui-preferences.service';
 import { GithubMonitorStatus } from '../models/settings.model';
 import { catchError, EMPTY, interval, switchMap } from 'rxjs';
 
-const URL = 'http://localhost:8080/api/notifications';
+const URL = `${API_ORIGIN}/api/notifications`;
 
 @Injectable({ providedIn: 'root' })
 export class NotificationService {

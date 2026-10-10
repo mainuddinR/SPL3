@@ -11,6 +11,9 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import org.springframework.beans.factory.annotation.Value;
 
 @Component
 public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler {
@@ -20,6 +23,9 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
 
     @Autowired
     private JwtUtils jwtUtils;
+
+    @Value("${app.frontend-url:http://localhost:4200}")
+    private String frontendUrl;
 
     @Autowired
     private GithubAuthorizedClientService authorizedClients;
@@ -58,7 +64,7 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
         authorizedClients.linkLogin(authentication, githubId);
 
         String token = jwtUtils.generateJwtToken(user.getGithubId(), user.getUsername());
-        response.sendRedirect("http://localhost:4200/login/success?token=" + token);
+        response.sendRedirect(frontendUrl + "/login/success#token=" + URLEncoder.encode(token, StandardCharsets.UTF_8));
     }
 
 }

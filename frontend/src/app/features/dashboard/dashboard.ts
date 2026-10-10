@@ -1,3 +1,4 @@
+import { API_ORIGIN } from '../../core/config/api-origin';
 import { InfoPopover } from '../../components/info-popover/info-popover';
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -51,7 +52,7 @@ export class Dashboard implements OnInit {
   fetchDashboardData() {
     this.loading = true;
     this.error = false;
-    this.http.get<DashboardResponse>('http://localhost:8080/api/dashboard/summary').subscribe({
+    this.http.get<DashboardResponse>(`${API_ORIGIN}/api/dashboard/summary`).subscribe({
       next: (data) => {
         this.dashboardData = data;
         this.loading = false;

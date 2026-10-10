@@ -1,3 +1,4 @@
+import { API_ORIGIN } from '../core/config/api-origin';
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -8,9 +9,9 @@ import { GithubBranch, GithubRepo, RepositoryPage, GithubUserSearchPage } from '
 })
 export class GithubService {
   private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:8080/api/github';
+  private apiUrl = `${API_ORIGIN}/api/github`;
   storedProjects(): Observable<{ id: number; githubRepoId: number; fullName: string }[]> {
-    return this.http.get<{ id: number; githubRepoId: number; fullName: string }[]>('http://localhost:8080/api/projects');
+    return this.http.get<{ id: number; githubRepoId: number; fullName: string }[]>(`${API_ORIGIN}/api/projects`);
   }
 
   myRepositories(page: number = 1): Observable<RepositoryPage> {

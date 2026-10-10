@@ -1,3 +1,4 @@
+import { API_ORIGIN } from '../core/config/api-origin';
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -6,7 +7,7 @@ import { DesignAdviceResponse, PatternConformance, PatternProfile } from '../mod
 @Injectable({ providedIn: 'root' })
 export class DesignPatternService {
   private http = inject(HttpClient);
-  private base = 'http://localhost:8080/api';
+  private base = `${API_ORIGIN}/api`;
 
   profile(projectId: number): Observable<PatternProfile | null> {
     return this.http.get<PatternProfile | null>(`${this.base}/projects/${projectId}/design-profile`);

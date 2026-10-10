@@ -14,6 +14,7 @@ spring:
             scope: read:user,public_repo
 
 app:
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:4200}
   design:
     max-java-files: ${DESIGN_MAX_JAVA_FILES:250}
     max-source-file-bytes: ${DESIGN_MAX_SOURCE_FILE_BYTES:262144}

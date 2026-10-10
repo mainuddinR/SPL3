@@ -26,7 +26,6 @@ import com.mainuddin.codereview.service.ProgressiveAnalysisService;
 
 @RestController
 @RequestMapping("/api/prs")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class PullRequestController {
 
     private final GithubService githubService;
@@ -127,24 +126,37 @@ public class PullRequestController {
 
     @GetMapping("/{prId}")
     public ResponseEntity<PullRequest> getPullRequest(@PathVariable Long prId) {
-        return pullRequestRepository.findById(prId)
+        return pullRequestRepository.findByIdAndGithubProjectUserGithubId(prId, currentGithubId())
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/{prId}/sync-details")
     public ResponseEntity<?> syncPullRequestDetails(@PathVariable Long prId) {
+        assertOwnedPr(prId);
         githubService.fetchAndStorePullRequestDetails(prId);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{prId}/files")
     public ResponseEntity<List<PullRequestFile>> getPullRequestFiles(@PathVariable Long prId) {
+        assertOwnedPr(prId);
         return ResponseEntity.ok(pullRequestFileRepository.findByPullRequestId(prId));
     }
 
     @GetMapping("/{prId}/comments")
     public ResponseEntity<List<PullRequestComment>> getPullRequestComments(@PathVariable Long prId) {
+        assertOwnedPr(prId);
         return ResponseEntity.ok(pullRequestCommentRepository.findByPullRequestId(prId));
+    }
+
+    private String currentGithubId() {
+        return org.springframework.security.core.context.SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+    }
+
+    private void assertOwnedPr(Long prId) {
+        pullRequestRepository.findByIdAndGithubProjectUserGithubId(prId, currentGithubId())
+                .orElseThrow(() -> new com.mainuddin.codereview.exception.ResourceNotFoundException("PR not found"));
     }
 }

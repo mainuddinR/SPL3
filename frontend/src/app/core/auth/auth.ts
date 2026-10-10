@@ -1,10 +1,11 @@
+import { API_ORIGIN } from '../config/api-origin';
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { TokenStorage } from './token-storage';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 
-const AUTH_API = 'http://localhost:8080/api/auth/';
+const AUTH_API = `${API_ORIGIN}/api/auth/`;
 
 @Injectable({
   providedIn: 'root',

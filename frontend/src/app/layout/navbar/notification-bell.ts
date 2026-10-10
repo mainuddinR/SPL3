@@ -1,3 +1,4 @@
+import { GITHUB_LOGIN_URL } from '../../core/config/api-origin';
 import { Component, HostListener, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -6,6 +7,7 @@ import { UiPreferencesService } from '../../services/ui-preferences.service';
 
 @Component({ selector: 'app-notification-bell', standalone: true, imports: [CommonModule], templateUrl: './notification-bell.html' })
 export class NotificationBell {
+  readonly githubLoginUrl = GITHUB_LOGIN_URL;
   notifications = inject(NotificationService);
   private router = inject(Router);
   private preferences = inject(UiPreferencesService);

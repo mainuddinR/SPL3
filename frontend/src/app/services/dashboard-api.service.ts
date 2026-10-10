@@ -1,3 +1,4 @@
+import { API_ORIGIN } from '../core/config/api-origin';
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -7,7 +8,7 @@ import { DashboardAnalyzedRow, DashboardFindingRow, DashboardFindingDetail, Dash
 @Injectable({ providedIn: 'root' })
 export class DashboardApiService {
   private http = inject(HttpClient);
-  private base = 'http://localhost:8080/api/dashboard';
+  private base = `${API_ORIGIN}/api/dashboard`;
 
   summary(): Observable<DashboardResponse> { return this.http.get<DashboardResponse>(`${this.base}/summary`); }
   repositories(page: number, size: number): Observable<DashboardPage<DashboardRepositoryRow>> {

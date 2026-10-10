@@ -1,3 +1,4 @@
+import { API_ORIGIN } from '../../../../core/config/api-origin';
 import { Component, ElementRef, EventEmitter, HostListener, Input, Output, ViewChild, AfterViewInit, OnDestroy, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
@@ -42,7 +43,7 @@ export class RemoveRepository implements AfterViewInit, OnDestroy {
   remove() {
     if (this.busy) return;
     this.busy = true; this.error = '';
-    this.http.delete<void>(`http://localhost:8080/api/projects/${this.projectId}`).subscribe({
+    this.http.delete<void>(`${API_ORIGIN}/api/projects/${this.projectId}`).subscribe({
       next: () => this.removed.emit(),
       error: err => { this.busy = false; this.error = err.status === 409
         ? 'Wait for the running analysis to finish, then try again.'

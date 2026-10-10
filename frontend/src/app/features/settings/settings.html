@@ -26,7 +26,7 @@
          class="notification-monitor-alert mt-4 rounded-lg border px-4 py-3 text-sm" role="status">
       <p class="font-semibold">GitHub monitoring paused — reconnect GitHub</p>
       <p class="mt-1">Your SPL3 session is active, but the server needs a new GitHub sign-in to resume automatic PR checks.</p>
-      <a href="http://localhost:8080/oauth2/authorization/github" class="mt-2 inline-block font-semibold underline">Reconnect GitHub</a>
+      <a [href]="githubLoginUrl" class="mt-2 inline-block font-semibold underline">Reconnect GitHub</a>
     </div>
     <button type="button" (click)="signOut()" class="mt-4 border border-red-300 text-red-700 rounded px-4 py-2 hover:bg-red-50">Sign out</button>
   </section>

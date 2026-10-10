@@ -23,7 +23,7 @@
     <div *ngIf="notifications.monitorStatus()?.enabled && notifications.monitorStatus()?.githubSessionConnected === false"
          class="notification-monitor-alert mx-4 mb-3 rounded-lg border px-3 py-2 text-xs" role="status">
       <span class="font-semibold">GitHub monitoring paused</span> — reconnect GitHub to resume automatic PR checks.
-      <a href="http://localhost:8080/oauth2/authorization/github" class="mt-1 block font-semibold underline">Reconnect GitHub</a>
+      <a [href]="githubLoginUrl" class="mt-1 block font-semibold underline">Reconnect GitHub</a>
     </div>
 
     <div class="notification-scroll max-h-96 overflow-y-auto border-t border-gray-200">

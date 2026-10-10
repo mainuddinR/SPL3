@@ -17,7 +17,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/github")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class GithubController {
 
     private final GithubService githubService;

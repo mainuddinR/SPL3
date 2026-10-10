@@ -1,0 +1,6 @@
+# Optional HTTPS deployment override. Do not enable Funnel until owner/auth checks pass.
+services:
+  backend:
+    environment:
+      APP_FRONTEND_URL: https://desktop-hkpkb3j.taild4dcd1.ts.net
+      SERVER_FORWARD_HEADERS_STRATEGY: framework

@@ -1,3 +1,4 @@
+import { GITHUB_LOGIN_URL } from '../../core/config/api-origin';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -8,6 +9,7 @@ import { GithubMonitorStatus, UiStatus } from '../../models/settings.model';
 
 @Component({ selector: 'app-settings', standalone: true, imports: [CommonModule], templateUrl: './settings.html' })
 export class Settings implements OnInit {
+  readonly githubLoginUrl = GITHUB_LOGIN_URL;
   private api = inject(SettingsApiService);
   private auth = inject(Auth);
   private router = inject(Router);
