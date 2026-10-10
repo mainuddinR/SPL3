@@ -28,6 +28,7 @@ public class PullRequestAnalysisService {
     private final CodeBertClientService codeBertClientService;
     private final AnalysisRunPersistenceService runPersistenceService;
     private final DebtCategoryAssessmentService categoryAssessmentService;
+    private final JavaCategoryEvidenceService javaCategoryEvidenceService;
     private final AnalysisInputSnapshotService inputSnapshotService;
     private final GithubSourceRetrievalService sourceRetrievalService;
     private final JavaMethodMetricsService methodMetricsService;
@@ -40,6 +41,7 @@ public class PullRequestAnalysisService {
             CodeBertClientService codeBertClientService,
             AnalysisRunPersistenceService runPersistenceService,
             DebtCategoryAssessmentService categoryAssessmentService,
+            JavaCategoryEvidenceService javaCategoryEvidenceService,
             AnalysisInputSnapshotService inputSnapshotService,
             GithubSourceRetrievalService sourceRetrievalService,
             JavaMethodMetricsService methodMetricsService,
@@ -50,6 +52,7 @@ public class PullRequestAnalysisService {
         this.codeBertClientService = codeBertClientService;
         this.runPersistenceService = runPersistenceService;
         this.categoryAssessmentService = categoryAssessmentService;
+        this.javaCategoryEvidenceService = javaCategoryEvidenceService;
         this.inputSnapshotService = inputSnapshotService;
         this.sourceRetrievalService = sourceRetrievalService;
         this.methodMetricsService = methodMetricsService;
@@ -116,7 +119,22 @@ public class PullRequestAnalysisService {
                             }
                             try {
                                 if (sourceSession == null) sourceSession = sourceRetrievalService.newSession();
-                                severity = assessSeverity(input, file, candidate, sourceSession);
+                                SourceAssessment sourceAssessment = assessSource(
+                                        input, file, candidate, sourceSession,
+                                        "UNCLASSIFIED".equals(category.category())
+                                                && "No explicit category evidence in the SATD comment"
+                                                .equals(category.reason()));
+                                severity = sourceAssessment.severity();
+                                if (sourceAssessment.evidence().verified()) {
+                                    try {
+                                        category = categoryAssessmentService.assess(candidate.getCommentText(),
+                                                candidate.getFilename(), candidate.getPrecedingCode(),
+                                                candidate.getSucceedingCode(), sourceAssessment.evidence());
+                                    } catch (RuntimeException evidenceFailure) {
+                                        log.warn("Hybrid category evidence unavailable; keeping comment-only assessment",
+                                                evidenceFailure);
+                                    }
+                                }
                             } catch (RuntimeException optionalFailure) {
                                 log.warn("Optional severity session unavailable for a SATD candidate", optionalFailure);
                                 severity = SeverityAssessment.notAssessed("Severity evidence is unavailable");
@@ -187,26 +205,43 @@ public class PullRequestAnalysisService {
         }
     }
 
-    private SeverityAssessment assessSeverity(AnalysisInputSnapshotService.Snapshot input, PullRequestFile file,
-                                               SatdCandidateDTO candidate, GithubSourceRetrievalService.Session session) {
+    private record SourceAssessment(SeverityAssessment severity, JavaCategoryEvidence evidence) {}
+
+    private SourceAssessment assessSource(AnalysisInputSnapshotService.Snapshot input, PullRequestFile file,
+                                          SatdCandidateDTO candidate, GithubSourceRetrievalService.Session session,
+                                          boolean inspectForHybridCategory) {
+        JavaCategoryEvidence unavailable = JavaCategoryEvidence.unavailable();
         if (input.pullRequest().getSyncedFilesHeadSha() == null) {
-            return SeverityAssessment.notAssessed("Analyzed revision is unavailable");
+            return new SourceAssessment(SeverityAssessment.notAssessed("Analyzed revision is unavailable"),
+                    unavailable);
         }
         try {
             VerifiedSourceResult source = session.forCandidate(input.pullRequest().getGithubProject(),
                     input.pullRequest().getSyncedFilesHeadSha(), file, candidate);
             if (source.status() != VerifiedSourceResult.Status.VERIFIED) {
-                return SeverityAssessment.notAssessed("Verified source or candidate location is unavailable");
+                return new SourceAssessment(
+                        SeverityAssessment.notAssessed("Verified source or candidate location is unavailable"),
+                        unavailable);
             }
             MethodMetricsResult metrics = methodMetricsService.analyze(source, candidate.getLineNumber());
+            JavaCategoryEvidence evidence = unavailable;
+            if (inspectForHybridCategory) {
+                try {
+                    evidence = javaCategoryEvidenceService.inspect(source, candidate.getLineNumber(), metrics);
+                } catch (RuntimeException evidenceFailure) {
+                    log.warn("JavaParser category evidence unavailable", evidenceFailure);
+                }
+            }
             if (metrics.status() != MethodMetricsResult.Status.AVAILABLE) {
-                return SeverityAssessment.notAssessed("Containing method metrics are unavailable");
+                return new SourceAssessment(
+                        SeverityAssessment.notAssessed("Containing method metrics are unavailable"), evidence);
             }
             RiskEvidence risk = riskEvidenceService.assess(candidate.getCommentText());
-            return severityAssessmentService.assess(metrics, risk);
+            return new SourceAssessment(severityAssessmentService.assess(metrics, risk), evidence);
         } catch (RuntimeException optionalFailure) {
-            log.warn("Optional severity assessment unavailable for a SATD candidate", optionalFailure);
-            return SeverityAssessment.notAssessed("Severity evidence is unavailable");
+            log.warn("Optional source assessment unavailable for a SATD candidate", optionalFailure);
+            return new SourceAssessment(
+                    SeverityAssessment.notAssessed("Severity evidence is unavailable"), unavailable);
         }
     }
 }

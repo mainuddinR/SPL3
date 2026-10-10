@@ -23,7 +23,32 @@
     No pull requests found. Click "Sync with GitHub" to fetch them.
   </div>
 
-  <div *ngIf="!loading() && pullRequests().length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+  <div *ngIf="!loading() && pullRequests().length > 0" class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <div class="w-full sm:max-w-sm">
+      <label for="pr-number-search" class="mb-1 block text-sm font-medium text-gray-700">Search by PR number</label>
+      <div class="relative">
+        <span class="material-icons pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xl text-gray-400" aria-hidden="true">search</span>
+        <input id="pr-number-search" type="search" inputmode="numeric" autocomplete="off"
+               [value]="prNumberSearch()" (input)="onPrNumberSearch($event)"
+               placeholder="e.g. 146 or #146" aria-label="Search by PR number"
+               class="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-20 text-sm text-gray-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+        <button *ngIf="prNumberSearch()" type="button" (click)="clearPrNumberSearch()"
+                class="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                aria-label="Clear PR number search">Clear</button>
+      </div>
+    </div>
+    <p class="text-sm text-gray-500" role="status" aria-live="polite">
+      Showing {{ filteredPullRequests().length }} of {{ pullRequests().length }} pull requests
+    </p>
+  </div>
+
+  <div *ngIf="!loading() && pullRequests().length > 0 && filteredPullRequests().length === 0"
+       class="mb-4 rounded-xl border border-gray-200 bg-white px-6 py-8 text-center text-gray-600"
+       role="status">
+    No pull request found for "{{ prNumberSearch().trim() }}". Try another PR number or clear the search.
+  </div>
+
+  <div *ngIf="!loading() && filteredPullRequests().length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
     <table class="pr-list-table min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
@@ -35,7 +60,7 @@
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
-        <tr *ngFor="let pr of pullRequests()" class="hover:bg-gray-50 transition-colors">
+        <tr *ngFor="let pr of filteredPullRequests()" class="hover:bg-gray-50 transition-colors">
           <td data-label="PR number" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{{ pr.number }}</td>
           <td data-label="Title" class="px-6 py-4 text-sm font-medium text-gray-900 max-w-xs md:max-w-md lg:max-w-lg truncate" title="{{ pr.title }}">{{ pr.title }}</td>
           <td data-label="Status" class="px-6 py-4 whitespace-nowrap">

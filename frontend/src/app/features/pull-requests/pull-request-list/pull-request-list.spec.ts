@@ -54,4 +54,70 @@ describe('PullRequestList', () => {
     expect(service.syncPullRequests).toHaveBeenCalledWith(7);
     expect(service.getPullRequests).toHaveBeenCalledTimes(2);
   });
+
+  it('filters by the visible GitHub PR number, accepting 146 and #146', () => {
+    component.pullRequests.set([
+      { ...pr(99, 'open'), number: 146 },
+      { ...pr(98, 'closed'), number: 143 },
+      { ...pr(97, 'merged'), number: 2 }
+    ]);
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('#pr-number-search') as HTMLInputElement;
+    expect(input).not.toBeNull();
+    input.value = '146';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const rows = fixture.nativeElement.querySelectorAll('.pr-list-table tbody tr');
+    expect(rows.length).toBe(1);
+    expect(rows[0].textContent).toContain('#146');
+    expect(rows[0].textContent).not.toContain('#143');
+    expect(component.filteredPullRequests()[0].id).toBe(99);
+
+    input.value = '#146';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(component.filteredPullRequests().map(pr => pr.number)).toEqual([146]);
+
+    component.viewDetails(component.filteredPullRequests()[0].id);
+    expect(router.navigate).toHaveBeenCalledWith(['/dashboard/pulls', 99]);
+  });
+
+  it('supports partial PR numbers, no-match messaging and clearing', () => {
+    component.pullRequests.set([
+      { ...pr(21, 'open'), number: 146 },
+      { ...pr(22, 'closed'), number: 143 },
+      { ...pr(23, 'merged'), number: 2 }
+    ]);
+    fixture.detectChanges();
+    const input = fixture.nativeElement.querySelector('#pr-number-search') as HTMLInputElement;
+
+    input.value = '14';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(component.filteredPullRequests().map(pr => pr.number)).toEqual([146, 143]);
+
+    input.value = '999';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.pr-list-table tbody tr').length).toBe(0);
+    expect(fixture.nativeElement.textContent).toContain('No pull request found for "999"');
+
+    const clear = fixture.nativeElement.querySelector('button[aria-label="Clear PR number search"]') as HTMLButtonElement;
+    clear.click();
+    fixture.detectChanges();
+    expect(component.prNumberSearch()).toBe('');
+    expect(component.filteredPullRequests().length).toBe(3);
+    expect(fixture.nativeElement.querySelectorAll('.pr-list-table tbody tr').length).toBe(3);
+  });
+
+  it('keeps the filter when GitHub sync refreshes the PR list', () => {
+    component.prNumberSearch.set('#2');
+    fixture.detectChanges();
+    component.syncPullRequests();
+    fixture.detectChanges();
+    expect(component.filteredPullRequests().map(pr => pr.number)).toEqual([2]);
+    expect(service.syncPullRequests).toHaveBeenCalledWith(7);
+  });
 });

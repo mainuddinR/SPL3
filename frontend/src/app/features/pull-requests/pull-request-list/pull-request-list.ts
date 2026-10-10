@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PullRequestService } from '../../../services/pull-request.service';
@@ -19,6 +19,13 @@ export class PullRequestList implements OnInit {
 
   projectId = signal<number | null>(null);
   pullRequests = signal<PullRequest[]>([]);
+  prNumberSearch = signal('');
+  filteredPullRequests = computed(() => {
+    const query = this.prNumberSearch().trim().replace(/^#\s*/, '').trim();
+    if (!query) return this.pullRequests();
+    if (!/^\d+$/.test(query)) return [];
+    return this.pullRequests().filter(pr => String(pr.number).startsWith(query));
+  });
   loading = signal<boolean>(true);
   syncing = signal<boolean>(false);
   error = signal<string | null>(null);
@@ -66,6 +73,14 @@ export class PullRequestList implements OnInit {
         this.syncing.set(false);
       }
     });
+  }
+
+  onPrNumberSearch(event: Event) {
+    this.prNumberSearch.set((event.target as HTMLInputElement).value);
+  }
+
+  clearPrNumberSearch() {
+    this.prNumberSearch.set('');
   }
 
   viewDetails(prId: number) {
