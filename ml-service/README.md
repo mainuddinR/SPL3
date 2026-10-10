@@ -1,53 +1,40 @@
 # SATD Detection ML Service
 
-This is the independent FastAPI ML microservice for Automated Code Review and Technical Debt (SATD) classification.
+This FastAPI service classifies source-code comments as SATD or non-SATD. The project uses a fine-tuned CodeBERT checkpoint together with surrounding source-code context.
 
-## Project Structure
-This service is intentionally isolated from the Spring Boot orchestration backend. It exposes inference endpoints for SATD classification.
+## Architecture
 
-## Prerequisites
-- Python 3.10+
-- `pip`
+Spring Boot calls the ML API for inference. The service is separate from the Angular frontend and Oracle persistence layer.
 
-## Installation
-Create a virtual environment and install dependencies:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+In Docker Compose, the service starts on port **8001** with `CLASSIFIER_TYPE=codebert`. The trained model is mounted read-only from `ml-service/models/codebert_satd/best_model/`; its weights are not stored in Git.
+
+## API
+
+- `GET /health` — health check
+- `POST /api/v1/predict` — SATD inference endpoint
+
+Request and response schemas are defined in `app/schemas/prediction.py`.
+
+## Running locally
+
+Create a Python environment and install dependencies from `requirements.txt`. For direct Uvicorn runs, select the classifier and port explicitly:
+
+```powershell
+$env:CLASSIFIER_TYPE = "codebert"
+$env:MODEL_PATH = "models/codebert_satd/best_model"
+uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
-## Running the Application
-Start the FastAPI server via Uvicorn:
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-Alternatively, configure `PORT` in `.env`.
+The `mock` classifier is kept for development tests; it is **not** the model used by the Docker application.
 
-## Endpoints
-### Health Check
-```bash
-curl http://localhost:8000/health
-# Response: {"status": "ok"}
+## Training and tests
+
+The training code and input formatting are in `codebert_training/`. The current training dataset is the controlled 30K PENTACET subset, split by project to avoid overlap between train, validation and test projects.
+
+The final data preparation summary is in `reports/pentacet_final_30k_dataset_report.md`.
+
+```powershell
+python -m pytest tests
 ```
 
-### Prediction API
-```bash
-curl -X POST http://localhost:8000/api/v1/predict \
-  -H "Content-Type: application/json" \
-  -d '{"comment":"TODO: refactor this method","surrounding_code":"public void process() { ... }","language":"Java"}'
-```
-
-## Classifier Selection (Mock vs CodeBERT)
-By default, the service uses a **Mock Classifier**. This mock is a deterministic development stub that flags keywords like `TODO`, `FIXME`, or `HACK` as SATD. 
-
-**IMPORTANT**: The mock classifier is NOT the final ML model. 
-A separate training pipeline will later utilize our 62K CSV dataset to fine-tune a Hugging Face CodeBERT model. Once the model is trained, it will replace the mock classifier.
-
-To select the classifier, use the `.env` file or environment variables:
-```env
-CLASSIFIER_TYPE=mock      # Uses MockSatdClassifier (Default)
-CLASSIFIER_TYPE=codebert  # Uses CodeBertSatdClassifier
-MODEL_NAME=microsoft/codebert-base
-MODEL_PATH=/path/to/local/model
-```
+The checkpoint and the dataset files remain local and are excluded from the repository.

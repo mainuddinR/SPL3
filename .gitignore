@@ -99,3 +99,25 @@ __MACOSX/
 
 # Controlled demo is an independent Git repository, never part of SPL3 history.
 /demo/design-pattern-demo/
+
+# Keep these machine-specific notes and retired experiments on the PC only.
+/PROJECT_CONTEXT.md
+/DEPLOYMENT.md
+/technical_debt_dataset.csv
+/test_h2.py
+/test_uvicorn.py
+/audit.py
+/cleanup_oracle.ps1
+/backend/TestRestClient.java
+/backend/dummy-settings.xml
+/backend/inspect_db.py
+/backend/listener.py
+/tools/download_pg.py
+/ml-service/scripts/audit_62k.py
+/ml-service/scripts/extract_m62_blocklist.py
+/ml-service/scripts/feasibility_test.py
+/ml-service/reports/62k_context_feasibility.md
+/ml-service/reports/62k_pretraining_audit.md
+/ml-service/reports/backend_integration_inspection.md
+/ml-service/reports/frontend_srs_audit.md
+/ml-service/reports/proposal_extracted.txt
