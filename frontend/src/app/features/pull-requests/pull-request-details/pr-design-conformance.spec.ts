@@ -33,7 +33,7 @@ describe('PrDesignConformance', () => {
   beforeEach(async () => {
     api = jasmine.createSpyObj<DesignPatternService>('DesignPatternService', ['profileForPr', 'latestCheck', 'runCheck', 'generateDesignAdvice']);
     api.profileForPr.and.returnValue(of(profile));
-    api.latestCheck.and.returnValue(of(null));
+    api.latestCheck.and.returnValue(of(checked));
     api.runCheck.and.returnValue(of(checked));
     await TestBed.configureTestingModule({ imports: [PrDesignConformance],
       providers: [provideRouter([]), { provide: DesignPatternService, useValue: api }] }).compileComponents();
@@ -46,13 +46,44 @@ describe('PrDesignConformance', () => {
     return fixture;
   }
 
-  it('offers exact-base analysis even when no default profile is available', () => {
+  it('automatically starts exact-base review for a new PR even without a default profile', () => {
     api.profileForPr.and.returnValue(of({ ...profile, id: null, status: 'NOT_ANALYZED' }));
+    api.latestCheck.and.returnValue(of(null));
     const fixture = render();
     expect(fixture.nativeElement.textContent).toContain('exact base commit');
     expect(fixture.nativeElement.textContent).not.toContain('How this review works');
-    expect(fixture.nativeElement.textContent).toContain('No design check yet.');
-    expect((fixture.nativeElement.querySelector('button:not(.info-control)') as HTMLButtonElement).disabled).toBeFalse();
+    expect(api.runCheck).toHaveBeenCalledOnceWith(19);
+    expect(fixture.nativeElement.textContent).toContain('Overall design status');
+    fixture.destroy();
+  });
+
+  it('shows saved failed results without automatically retrying them', () => {
+    api.latestCheck.and.returnValue(of({ ...checked, status: 'FAILED', findings: [],
+      failureMessage: 'JavaParser could not parse src/main/java/Broken.java.' }));
+    const fixture = render();
+    expect(api.runCheck).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('src/main/java/Broken.java');
+    expect(fixture.nativeElement.textContent).toContain('Run Pattern Check Again');
+    fixture.destroy();
+  });
+
+  it('does not start a second job when an existing check is running', () => {
+    api.latestCheck.and.returnValue(of({ ...checked, status: 'RUNNING', progress: 'Preparing exact PR base design profile...' }));
+    const fixture = render();
+    expect(api.runCheck).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('Preparing exact PR base');
+    fixture.destroy();
+  });
+
+  it('shows sync guidance rather than an empty screen for an unsynced first-time PR', () => {
+    api.latestCheck.and.returnValue(of(null));
+    api.runCheck.and.returnValue(throwError(() => ({ status: 428 })));
+    const fixture = render();
+    expect(api.runCheck).toHaveBeenCalledOnceWith(19);
+    expect(fixture.nativeElement.textContent).toContain('Sync Details for this PR revision');
+    expect(fixture.nativeElement.textContent).not.toContain('No saved design check');
+    expect((fixture.nativeElement.querySelector('button.design-action') as HTMLButtonElement).disabled).toBeFalse();
+    fixture.destroy();
   });
 
   it('shows saved conformance, potential deviation, not applicable and insufficient evidence without rerunning', () => {
@@ -70,7 +101,7 @@ describe('PrDesignConformance', () => {
     expect(api.runCheck).not.toHaveBeenCalled();
   });
 
-  it('starts a check only on explicit action and displays empty results normally', () => {
+  it('permits an explicit rerun of a saved check and displays empty results normally', () => {
     api.runCheck.and.returnValue(of({ ...checked, findings: [] }));
     const fixture = render();
     (fixture.nativeElement.querySelector('button:not(.info-control)') as HTMLButtonElement).click();

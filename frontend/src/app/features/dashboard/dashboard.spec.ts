@@ -209,4 +209,46 @@ describe('Dashboard', () => {
       '/dashboard/analyzed-prs', '/dashboard/findings']);
     expect(fixture.nativeElement.textContent).toContain('Current SATD Findings');
   });
+
+  it('keeps dashboard summary values and labels legible in Dark mode and unchanged in Light mode', () => {
+    const root = document.documentElement;
+    const previousDark = root.classList.contains('dark');
+    const fixture = TestBed.createComponent(Dashboard);
+    // TestBed uses a <div> root; production uses <app-dashboard>.
+    // Mount under that real selector so global Dark theme rules can match.
+    const productionHost = document.createElement('app-dashboard');
+    document.body.appendChild(productionHost);
+    productionHost.appendChild(fixture.nativeElement);
+    try {
+      fixture.detectChanges();
+      http.expectOne(url).flush(structuredClone(data));
+      fixture.detectChanges();
+
+      const statCards = Array.from(fixture.nativeElement.querySelectorAll(
+        '[data-distribution] .distribution-stat')) as HTMLElement[];
+      expect(statCards.length).toBe(6);
+
+      root.classList.remove('dark');
+      for (const stat of statCards) {
+        const number = stat.querySelector('strong') as HTMLElement;
+        const label = stat.querySelector('span') as HTMLElement;
+        expect(number.textContent?.trim()).toBeTruthy();
+        expect(getComputedStyle(number).color).toBe('rgb(15, 23, 42)');
+        expect(getComputedStyle(label).color).toBe('rgb(100, 116, 139)');
+      }
+
+      root.classList.add('dark');
+      for (const stat of statCards) {
+        const number = stat.querySelector('strong') as HTMLElement;
+        const label = stat.querySelector('span') as HTMLElement;
+        expect(getComputedStyle(stat).backgroundColor).toBe('rgb(15, 23, 42)');
+        expect(getComputedStyle(number).color).toBe('rgb(248, 250, 252)');
+        expect(getComputedStyle(label).color).toBe('rgb(203, 213, 225)');
+      }
+    } finally {
+      root.classList.toggle('dark', previousDark);
+      fixture.destroy();
+      productionHost.remove();
+    }
+  });
 });

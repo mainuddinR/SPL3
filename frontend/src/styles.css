@@ -34,7 +34,14 @@ html.dark .notification-panel { background-color: #1e293b; }
 .density-compact main :is(section, article) { padding-block: .75rem; }
 @media (min-width: 768px) {
   .sidebar-compact .app-sidebar { width: 4.5rem; }
-  .sidebar-compact .app-sidebar .brand-label, .sidebar-compact .app-sidebar .sidebar-label { display: none; }
+  /* Both brand lines must disappear; hiding only .brand-label left the subtitle overlapping the navbar. */
+  .sidebar-compact .app-sidebar .sidebar-brand-text,
+  .sidebar-compact .app-sidebar .sidebar-label { display: none; }
+  .sidebar-compact .app-sidebar .sidebar-brand {
+    justify-content: center;
+    padding-inline: 0;
+    gap: 0;
+  }
   .sidebar-compact .app-sidebar .material-icons { margin-right: 0; }
   .sidebar-compact .app-sidebar nav a { justify-content: center; }
 }
@@ -194,8 +201,11 @@ html.dark app-dashboard .distribution-card {
   box-shadow: 0 5px 22px rgba(0,0,0,.1);
 }
 html.dark app-dashboard .distribution-title,
-html.dark app-dashboard .distribution-label,
-html.dark app-dashboard .distribution-stat > strong { color: #f8fafc; }
+html.dark app-dashboard .distribution-label { color: #f8fafc; }
+/* Dashboard component-scoped .distribution-stat > strong has two Angular host attributes.
+   Add an ancestor class so dark colors win over component-scoped light defaults. */
+html.dark app-dashboard .distribution-stats .distribution-stat > strong { color: #f8fafc; }
+html.dark app-dashboard .distribution-stats .distribution-stat > span { color: #cbd5e1; }
 html.dark app-dashboard .distribution-subtitle,
 html.dark app-dashboard .distribution-stat > span,
 html.dark app-dashboard .distribution-percent,

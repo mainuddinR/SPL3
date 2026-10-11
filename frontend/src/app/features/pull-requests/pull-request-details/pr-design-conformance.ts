@@ -20,6 +20,7 @@ export class PrDesignConformance implements OnInit, OnDestroy {
   profile = signal<PatternProfile | null>(null);
   check = signal<PatternConformance | null>(null);
   loading = signal(true);
+  loadingCheck = signal(true);
   starting = signal(false);
   error = signal<string | null>(null);
 
@@ -37,15 +38,25 @@ export class PrDesignConformance implements OnInit, OnDestroy {
   refreshCheck() {
     const version = ++this.checkRequestVersion;
     this.api.latestCheck(this.prId).subscribe({
-      next: value => { if (version !== this.checkRequestVersion) return; this.check.set(value); this.pollIfRunning(value); },
-      error: () => { if (version === this.checkRequestVersion) this.error.set('Saved design check is unavailable.'); }
+      next: value => {
+        if (this.destroyed || version !== this.checkRequestVersion) return;
+        this.loadingCheck.set(false);
+        this.check.set(value);
+        if (value) this.pollIfRunning(value);
+        else this.run(); // First visit: prepare the exact PR-base review automatically.
+      },
+      error: () => {
+        if (this.destroyed || version !== this.checkRequestVersion) return;
+        this.loadingCheck.set(false);
+        this.error.set('Saved design check is unavailable. Use Run Pattern Check to retry.');
+      }
     });
   }
 
   run() {
     if (this.destroyed || this.starting() || this.check()?.status === 'RUNNING') return;
     ++this.checkRequestVersion;
-    this.starting.set(true); this.error.set(null); this.adviceState.set({});
+    this.starting.set(true); this.loadingCheck.set(false); this.error.set(null); this.adviceState.set({});
     this.api.runCheck(this.prId).subscribe({
       next: value => { if (this.destroyed) return; this.check.set(value); this.starting.set(false); this.pollIfRunning(value); },
       error: err => {

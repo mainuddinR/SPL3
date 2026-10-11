@@ -5,12 +5,14 @@
     </div>
     <button type="button" (click)="run()" [disabled]="starting() || check()?.status === 'RUNNING'"
             class="design-action disabled:opacity-50">
-      {{ check() ? 'Run Pattern Check Again' : 'Run Pattern Check' }}
+      {{ starting() ? 'Starting Pattern Check...' : check() ? 'Run Pattern Check Again' : 'Run Pattern Check' }}
     </button>
   </div>
   <p *ngIf="loading()" role="status" class="mt-4 text-sm text-gray-600">Loading repository design profile...</p>
   <p *ngIf="error()" role="alert" class="mt-4 text-sm text-red-700">{{ error() }}</p>
-  <p *ngIf="!check()" class="mt-3 text-sm text-gray-600">No design check yet. Sync PR details if needed, then select Run Pattern Check.</p>
+  <p *ngIf="loadingCheck() && !check()" role="status" class="mt-3 text-sm text-gray-600">Loading saved design check...</p>
+  <p *ngIf="starting()" role="status" class="mt-3 text-sm text-blue-700">Starting design check for this PR revision...</p>
+  <p *ngIf="!check() && !loadingCheck() && !starting() && !error()" class="mt-3 text-sm text-gray-600">No saved design check is available. Select Run Pattern Check to retry.</p>
   <p *ngIf="check()?.status === 'RUNNING'" role="status" class="mt-4 text-sm text-blue-700">{{ check()?.progress }}</p>
   <p *ngIf="check()?.status === 'FAILED'" role="alert" class="mt-4 text-sm text-red-700">{{ check()?.failureMessage || 'Pattern Check failed.' }}</p>
   <ng-container *ngIf="check()?.status === 'COMPLETED'">

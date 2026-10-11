@@ -41,9 +41,14 @@ public class JavaTypeIndexBuilder {
             for (var entry : sources.entrySet()) {
                 var parsed = parser.parse(entry.getValue());
                 if (!parsed.isSuccessful() || parsed.getResult().isEmpty()) {
+                    // Only the bounded repository-relative filename is exposed; never source text,
+                    // parser tokens, GitHub responses or stack traces.
+                    String path = entry.getKey().replaceAll("[^A-Za-z0-9_./-]", "_");
+                    if (path.length() > 160) path = "..." + path.substring(path.length() - 157);
                     throw new DesignSourceException(
                             "SOURCE_PARSE_FAILED",
-                            "A Java source file could not be parsed safely.",
+                            "JavaParser could not parse " + path
+                                    + ". Check that file for invalid or unsupported Java syntax.",
                             null,
                             null);
                 }
